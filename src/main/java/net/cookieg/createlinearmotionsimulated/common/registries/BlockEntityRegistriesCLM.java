@@ -3,6 +3,7 @@ package net.cookieg.createlinearmotionsimulated.common.registries;
 import net.cookieg.createlinearmotionsimulated.common.CreateLinearMotionSimulated;
 import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.PneumaticCylinderBlockEntity;
 import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.link_block.PneumaticCylinderPistonHeadBlockEntity;
+import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.rod.PneumaticCylinderRodSegmentBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
@@ -16,17 +17,18 @@ public class BlockEntityRegistriesCLM {
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PneumaticCylinderBlockEntity>> PNEUMATIC_CYLINDER =
             BLOCK_ENTITY_TYPES.register("pneumatic_cylinder",
-                    () -> BlockEntityType.Builder.of(
-                            PneumaticCylinderBlockEntity::new,
-                            BlockRegistriesCLM.PNEUMATIC_CYLINDER.get()
-                    ).build(null));
+                    () -> BlockEntityType.Builder.of(PneumaticCylinderBlockEntity::new, BlockRegistriesCLM.PNEUMATIC_CYLINDER.get()).build(null)
+            );
 
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PneumaticCylinderPistonHeadBlockEntity>> PNEUMATIC_CYLINDER_PISTON_HEAD =
             BLOCK_ENTITY_TYPES.register("pneumatic_cylinder_piston_head",
-                    () -> BlockEntityType.Builder.of(
-                            PneumaticCylinderPistonHeadBlockEntity::new,
-                            BlockRegistriesCLM.PNEUMATIC_CYLINDER_PISTON_HEAD.get()
-                    ).build(null));
+                    () -> BlockEntityType.Builder.of(PneumaticCylinderPistonHeadBlockEntity::new, BlockRegistriesCLM.PNEUMATIC_CYLINDER_PISTON_HEAD.get()).build(null)
+            );
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<PneumaticCylinderRodSegmentBlockEntity>> PNEUMATIC_CYLINDER_ROD_SEGMENT =
+            BLOCK_ENTITY_TYPES.register("pneumatic_cylinder_rod_segment",
+                    () -> BlockEntityType.Builder.of(PneumaticCylinderRodSegmentBlockEntity::new, BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get()).build(null)
+            );
 
     public static void register(IEventBus modEventBus) {
         BLOCK_ENTITY_TYPES.register(modEventBus);

@@ -25,6 +25,10 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
     private UUID parentSubLevelId;
     private boolean assembling;
 
+    private float extension;
+    private float prevExtension;
+    private float maxExtension;
+
     public PneumaticCylinderPistonHeadBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
     }
@@ -48,8 +52,14 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
         if (parent == null || level == null)
             return;
 
-        if (level.getBlockState(parent).is(BlockRegistriesCLM.PNEUMATIC_CYLINDER.get()))
-            level.destroyBlock(parent, false);
+        BlockEntity be = level.getBlockEntity(parent);
+        if (be instanceof PneumaticCylinderBlockEntity cylinder) {
+            PneumaticCylinderBlockEntity controller = cylinder.getControllerBE();
+            if (controller != null)
+                level.destroyBlock(controller.getBlockPos(), false);
+            else if (level.getBlockState(parent).is(BlockRegistriesCLM.PNEUMATIC_CYLINDER.get()))
+                level.destroyBlock(parent, false);
+        }
     }
 
     public void setParent(final PneumaticCylinderBlockEntity be) {
@@ -97,6 +107,9 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
         if (parentSubLevelId != null)
             compound.putUUID("ParentSubLevelId", parentSubLevelId);
         compound.putBoolean("Assembling", assembling);
+        compound.putFloat("Extension", extension);
+        compound.putFloat("PrevExtension", prevExtension);
+        compound.putFloat("MaxExtension", maxExtension);
     }
 
     @Override
@@ -113,5 +126,34 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
                 ? compound.getUUID("ParentSubLevelId")
                 : null;
         assembling = compound.getBoolean("Assembling");
+        extension = compound.getFloat("Extension");
+        prevExtension = compound.getFloat("PrevExtension");
+        maxExtension = compound.getFloat("MaxExtension");
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        prevExtension = extension;
+    }
+
+    public void setExtensionData(float extension, float maxExtension) {
+        this.prevExtension = this.extension;
+        this.extension = extension;
+        this.maxExtension = maxExtension;
+        setChanged();
+        sendData();
+    }
+
+    public float getRenderedExtension(float partialTicks) {
+        return prevExtension + (extension - prevExtension) * partialTicks;
+    }
+
+    public float getExtension() {
+        return extension;
+    }
+
+    public float getMaxExtension() {
+        return maxExtension;
     }
 }

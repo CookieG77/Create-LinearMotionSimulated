@@ -26,11 +26,6 @@ public class PneumaticCylinderRenderer extends SafeBlockEntityRenderer<Pneumatic
                               int light,
                               int overlay) {
 
-        BlockState state = be.getBlockState();
-        VertexConsumer vb = bufferSource.getBuffer(RenderType.cutoutMipped());
-
-        renderBackShaft(be, state, ms, vb, light);
-
         PneumaticCylinderBlockEntity controller = be.getControllerBE();
         if (controller == null || !controller.isController())
             return;
@@ -38,168 +33,58 @@ public class PneumaticCylinderRenderer extends SafeBlockEntityRenderer<Pneumatic
         if (be != controller)
             return;
 
-        if (!controller.isAssembled())
-            return;
+        BlockState state = controller.getBlockState();
+        VertexConsumer vb = bufferSource.getBuffer(RenderType.cutoutMipped());
 
-        float extension = controller.getRenderedExtension(partialTicks);
-        if (extension <= 0.001f)
-            return;
-
-        renderRod(controller, state, extension, ms, vb, light);
+        renderBackShaft(controller, state, partialTicks, ms, vb, light);
     }
 
-    private void renderBackShaft(PneumaticCylinderBlockEntity be,
+    private void renderBackShaft(PneumaticCylinderBlockEntity controller,
                                  BlockState state,
+                                 float partialTicks,
                                  PoseStack ms,
                                  VertexConsumer vb,
                                  int light) {
 
-        if (!state.getValue(PneumaticCylinderBlock.HAS_SHAFT))
+        BlockPos shaftPos = controller.getShaftPosForRendering();
+        if (shaftPos == null)
             return;
-
-        Direction facing = state.getValue(PneumaticCylinderBlock.FACING);
-        Direction back = facing.getOpposite();
-
-        ms.pushPose();
-
-        /*
-         * AllPartialModels.SHAFT_HALF is a Create partial.
-         * Source orientation is vertical/Y by default, so we rotate from UP to the wanted back direction.
-         *
-         * The model is placed around the block center, then moved toward the rear face.
-         * A half-shaft should occupy roughly half a block behind/inside the rear side.
-         */
-        CachedBuffers.partial(AllPartialModels.SHAFT_HALF, state)
-                .rotateToFace(back)
-                .translate(
-                        0.5 + back.getStepX() * 0.25,
-                        0.5 + back.getStepY() * 0.25,
-                        0.5 + back.getStepZ() * 0.25
-                )
-                .light(light)
-                .renderInto(ms, vb);
-
-        ms.popPose();
-    }
-
-    private void renderRod(PneumaticCylinderBlockEntity controller,
-                           BlockState state,
-                           float extension,
-                           PoseStack ms,
-                           VertexConsumer vb,
-                           int light) {
 
         Direction facing = controller.getFacing();
 
-        /*
-         * Rod start:
-         * - The body occupies `height` blocks.
-         * - The rod exits from the front side of the FRONT/TOP block.
-         *
-         * Since the renderer origin is the controller block position, we need the offset
-         * from controller to the logical front.
-         */
-        int height = controller.getHeight();
-        BlockPos back = controller.getBackOrigin();
-        BlockPos front = back.relative(facing, height - 1);
+        double localX = shaftPos.getX() - controller.getBlockPos().getX();
+        double localY = shaftPos.getY() - controller.getBlockPos().getY();
+        double localZ = shaftPos.getZ() - controller.getBlockPos().getZ();
 
-        double localFrontX = front.getX() - controller.getBlockPos().getX();
-        double localFrontY = front.getY() - controller.getBlockPos().getY();
-        double localFrontZ = front.getZ() - controller.getBlockPos().getZ();
+        float shaftAngleDegrees = -controller.getRenderedShaftAngle(partialTicks);
 
-        /*
-         * Start at center of the front block, then move to its front face.
-         */
-        double startX = localFrontX + 0.5 + facing.getStepX() * 0.5;
-        double startY = localFrontY + 0.5 + facing.getStepY() * 0.5;
-        double startZ = localFrontZ + 0.5 + facing.getStepZ() * 0.5;
-
-        int fullSegments = (int) Math.floor(extension);
-        float partial = extension - fullSegments;
+        if (facing.getAxisDirection() == Direction.AxisDirection.NEGATIVE)
+            shaftAngleDegrees = -shaftAngleDegrees;
 
         ms.pushPose();
-
-        for (int i = 0; i < fullSegments; i++) {
-            renderRodFullBlock(state, facing, startX, startY, startZ, i, ms, vb, light);
-        }
-
-        if (partial > 0.001f) {
-            renderRodPartialBlock(state, facing, startX, startY, startZ, fullSegments, partial, ms, vb, light);
-        }
-
-        ms.popPose();
-    }
-
-    private void renderRodFullBlock(BlockState state,
-                                    Direction facing,
-                                    double startX,
-                                    double startY,
-                                    double startZ,
-                                    int index,
-                                    PoseStack ms,
-                                    VertexConsumer vb,
-                                    int light) {
-
-        double x = startX + facing.getStepX() * index;
-        double y = startY + facing.getStepY() * index;
-        double z = startZ + facing.getStepZ() * index;
+        ms.translate(localX, localY, localZ);
 
         /*
-         * A complete one-block rod is made of the two half models:
-         * - block_extended_1: back half, y=0..8
-         * - block_extended_0: front half, y=8..16
+         * SHAFT_HALF is neutral along NORTH/SOUTH.
+         *
+         * Correct order for this transform builder:
+         * 1. center()
+         * 2. rotateToFace(facing)  -> align the shaft to the cylinder axis
+         * 3. rotateZDegrees(...)   -> roll around the shaft's local axis after alignment
+         * 4. uncenter()
+         *
+         * The previous order rotated before the final facing transform, which made the
+         * visual roll happen around the wrong axis depending on FACING.
          */
-        renderRodHalf(state, PartialModelRegistriesCLM.PNEUMATIC_CYLINDER_ROD_BACK_HALF,
-                facing, x, y, z, ms, vb, light);
-
-        renderRodHalf(state, PartialModelRegistriesCLM.PNEUMATIC_CYLINDER_ROD_FRONT_HALF,
-                facing, x, y, z, ms, vb, light);
-    }
-
-    private void renderRodPartialBlock(BlockState state,
-                                       Direction facing,
-                                       double startX,
-                                       double startY,
-                                       double startZ,
-                                       int index,
-                                       float partial,
-                                       PoseStack ms,
-                                       VertexConsumer vb,
-                                       int light) {
-
-        double x = startX + facing.getStepX() * index;
-        double y = startY + facing.getStepY() * index;
-        double z = startZ + facing.getStepZ() * index;
-
-        /*
-         * Simple version:
-         * - 0.0 -> 0.5 : render only the back half
-         * - 0.5 -> 1.0 : render back half + front half
-         */
-        renderRodHalf(state, PartialModelRegistriesCLM.PNEUMATIC_CYLINDER_ROD_BACK_HALF,
-                facing, x, y, z, ms, vb, light);
-
-        if (partial > 0.5f) {
-            renderRodHalf(state, PartialModelRegistriesCLM.PNEUMATIC_CYLINDER_ROD_FRONT_HALF,
-                    facing, x, y, z, ms, vb, light);
-        }
-    }
-
-    private void renderRodHalf(BlockState state,
-                               dev.engine_room.flywheel.lib.model.baked.PartialModel model,
-                               Direction facing,
-                               double x,
-                               double y,
-                               double z,
-                               PoseStack ms,
-                               VertexConsumer vb,
-                               int light) {
-
-        CachedBuffers.partial(model, state)
+        CachedBuffers.partial(AllPartialModels.SHAFT_HALF, state)
+                .center()
                 .rotateToFace(facing)
-                .translate(x, y, z)
+                .rotateZDegrees(shaftAngleDegrees)
+                .uncenter()
                 .light(light)
                 .renderInto(ms, vb);
+
+        ms.popPose();
     }
 
     @Override

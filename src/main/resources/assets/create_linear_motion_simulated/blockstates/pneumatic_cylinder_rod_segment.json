@@ -1,0 +1,10 @@
+{
+    "variants": {
+        "facing=up": { "model": "create_linear_motion_simulated:block/empty" },
+        "facing=down": { "model": "create_linear_motion_simulated:block/empty" },
+        "facing=north": { "model": "create_linear_motion_simulated:block/empty" },
+        "facing=south": { "model": "create_linear_motion_simulated:block/empty" },
+        "facing=east": { "model": "create_linear_motion_simulated:block/empty" },
+        "facing=west": { "model": "create_linear_motion_simulated:block/empty" }
+    }
+}

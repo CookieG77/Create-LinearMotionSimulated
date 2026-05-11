@@ -19,19 +19,10 @@ public class CreateLinearMotionSimulated {
     public static final String ID = "create_linear_motion_simulated";
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    private static final NonNullSupplier<Registrate> REGISTRATE = NonNullSupplier.lazy(() ->
-            Registrate.create(ID).defaultCreativeTab((ResourceKey<CreativeModeTab>) null)
-    );
-
     public CreateLinearMotionSimulated(IEventBus modEventBus, ModContainer modContainer) {
         BlockRegistriesCLM.register(modEventBus);
         BlockEntityRegistriesCLM.register(modEventBus);
 
-        REGISTRATE.get().registerEventListeners(modEventBus);
-    }
-
-    public static Registrate getRegistrate() {
-        return REGISTRATE.get();
     }
 
     public static ResourceLocation path(final String path) {

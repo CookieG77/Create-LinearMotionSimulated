@@ -39,12 +39,20 @@ versionRange="${create_version_range}"
 ordering="NONE"
 side="BOTH"
 
-# Create dependency
-#[[dependencies.${mod_id}]]
-#modId="sable"
-#type="required"
-#versionRange="${sable_version_range}"
-#ordering="NONE"
-#side="BOTH"
+# Sable dependency
+[[dependencies.${mod_id}]]
+modId="sable"
+type="required"
+versionRange="${sable_version_range}"
+ordering="NONE"
+side="BOTH"
+
+# Create Aeronautics dependency
+[[dependencies.${mod_id}]]
+modId="simulated"
+type="required"
+versionRange="${simulated_version_range}"
+ordering="NONE"
+side="BOTH"
 
 

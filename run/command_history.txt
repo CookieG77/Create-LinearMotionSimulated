@@ -1,0 +1,13 @@
+/give Dev create_linear_motion_simulated:pneumatic_cylinder
+/give Dev create_linear_motion_simulated:pneumatic_cylinder_piston_head
+/difficulty peaceful
+/time set day
+/weather clear
+/gamerule doDaylightCycle false
+/gamerule doWeatherCycle false
+/fill ~ ~ ~ ~100 ~ ~100 stone
+/data get block 25 98 41
+/data get block 25 100 41
+/data get block 25 99 41
+/data get block 25 97 41
+/setblock ~ ~ ~ create_linear_motion_simulated:pneumatic_cylinder_rod_segment

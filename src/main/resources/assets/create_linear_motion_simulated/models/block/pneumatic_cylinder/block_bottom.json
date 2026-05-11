@@ -1,6 +1,6 @@
 {
 	"format_version": "1.9.0",
-	"credit": "Made with Blockbench",
+	"credit": "Made with Blockbench by CookieG, textures by DrJim (jimmy_22x05)",
 	"textures": {
 		"0": "create_linear_motion_simulated:block/pneumatic_cylinder/pneumatic_cylinder",
 		"1": "create_linear_motion_simulated:block/pneumatic_cylinder/pneumatic_cylinder_bottom",
