@@ -1,0 +1,37 @@
+{
+	"format_version": "1.9.0",
+	"credit": "Made with Blockbench",
+	"textures": {
+		"2": "create_linear_motion_simulated:block/pneumatic_cylinder/pneumatic_cylinder_middle",
+		"particle": "create_linear_motion_simulated:block/pneumatic_cylinder/pneumatic_cylinder"
+	},
+	"elements": [
+		{
+			"from": [4, 8, 4],
+			"to": [12, 16, 12],
+			"faces": {
+				"north": {"uv": [0, 0, 8, 8], "texture": "#2"},
+				"east": {"uv": [0, 0, 8, 8], "texture": "#2"},
+				"south": {"uv": [0, 0, 8, 8], "texture": "#2"},
+				"west": {"uv": [0, 0, 8, 8], "texture": "#2"}
+			}
+		}
+	],
+	"groups": [
+		{
+			"name": "pneumatic_cylinder",
+			"origin": [8, 8, 8],
+			"scope": 0,
+			"color": 0,
+			"children": [
+				{
+					"name": "head",
+					"origin": [8, 8, 8],
+					"scope": 0,
+					"color": 0,
+					"children": [0]
+				}
+			]
+		}
+	]
+}

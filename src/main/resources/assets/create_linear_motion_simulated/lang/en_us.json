@@ -1,0 +1,13 @@
+{
+  "itemGroup.create_linear_motion_simulated": "Example Mod Tab",
+  "block.create_linear_motion_simulated.example_block": "Example Block",
+  "item.create_linear_motion_simulated.example_item": "Example Item",
+
+  "create_linear_motion_simulated.configuration.title": "Create : Linear Motion Simulated Configs",
+  "create_linear_motion_simulated.configuration.section.create_linear_motion_simulated.common.toml": "Create : Linear Motion Simulated Configs",
+  "create_linear_motion_simulated.configuration.section.create_linear_motion_simulated.common.toml.title": "Create : Linear Motion Simulated Configs",
+  "create_linear_motion_simulated.configuration.items": "Item List",
+  "create_linear_motion_simulated.configuration.logDirtBlock": "Log Dirt Block",
+  "create_linear_motion_simulated.configuration.magicNumberIntroduction": "Magic Number Text",
+  "create_linear_motion_simulated.configuration.magicNumber": "Magic Number"
+}
