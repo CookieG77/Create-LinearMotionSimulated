@@ -3,9 +3,9 @@
     "title": {
         "text": { "translate": "simulated.section.create_linear_motion_simulated.linear_motion" },
         "background": "#aa39231c",
-        "color": "#ffffeb8c",
-        "secondary_color": "#ffcea05a"
+        "color": "#a96d4a",
+        "secondary_color": "#8c502d"
     },
-    "sprite": "simulated:banner",
+    "sprite": "create_linear_motion_simulated:banner",
     "only_animate_on_hover": true
 }

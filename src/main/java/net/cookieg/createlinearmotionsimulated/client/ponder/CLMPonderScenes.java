@@ -10,8 +10,12 @@ public class CLMPonderScenes {
     public static void register(PonderSceneRegistrationHelper<ResourceLocation> helper) {
         helper.forComponents(BlockRegistriesCLM.PNEUMATIC_CYLINDER.getId())
                 .addStoryBoard(
-                        "pneumatic_cylinder",
+                        "pneumatic_cylinder_0",
                         PneumaticCylinderScenes::basicUsage,
+                        CLMPonderTags.LINEAR_MOTION
+                ).addStoryBoard(
+                        "pneumatic_cylinder_1",
+                        PneumaticCylinderScenes::multiBlock,
                         CLMPonderTags.LINEAR_MOTION
                 );
     }

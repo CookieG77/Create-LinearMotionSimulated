@@ -8,5 +8,14 @@
   "block.create_linear_motion_simulated.google_tooltip.extension": "Extension Length: %2f",
   "block.create_linear_motion_simulated.google_tooltip.powered": "Is Powered: %s",
   "block.create_linear_motion_simulated.google_tooltip.powered.yes": "Yes",
-  "block.create_linear_motion_simulated.google_tooltip.powered.no": "No"
+  "block.create_linear_motion_simulated.google_tooltip.powered.no": "No",
+
+  "create_linear_motion_simulated.ponder.pneumatic_cylinder.header" : "Moving Structures using the Pneumatic Cylinder",
+  "create_linear_motion_simulated.ponder.pneumatic_cylinder.text_1" : "Pneumatic Cylinder attach to the block in front of them",
+  "create_linear_motion_simulated.ponder.pneumatic_cylinder.text_2" : "Use Super Glue or Honey Glue to select a group of blocks",
+  "create_linear_motion_simulated.ponder.pneumatic_cylinder.text_3" : "While powered with rotation, the Pneumatic Cylinder will extend if it receive a redstone signal",
+  "create_linear_motion_simulated.ponder.pneumatic_cylinder.text_4" : "I know what you did...",
+  "create_linear_motion_simulated.ponder.extending_pneumatic_cylinder.header" : "Extending a Pneumatic Cylinder",
+  "create_linear_motion_simulated.ponder.extending_pneumatic_cylinder.text_1" : "Pneumatic Cylinder can be extended to move sub levels further",
+  "create_linear_motion_simulated.ponder.extending_pneumatic_cylinder.text_2" : "The whole piston, including the head, will move together when the cylinder is powered"
 }

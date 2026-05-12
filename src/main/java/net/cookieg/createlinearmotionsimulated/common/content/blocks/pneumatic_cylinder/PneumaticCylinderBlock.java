@@ -77,7 +77,7 @@ public class PneumaticCylinderBlock extends DirectionalKineticBlock implements I
         BlockPos placePos = context.getClickedPos();
         Direction clickedFace = context.getClickedFace();
 
-        if (context.getPlayer() != null && context.getPlayer().isCrouching()) {
+        if (context.getPlayer() != null && context.getPlayer().isShiftKeyDown()) {
             return context.getNearestLookingDirection();
         }
 

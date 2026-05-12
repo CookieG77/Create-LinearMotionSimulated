@@ -27,6 +27,9 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
     private float prevExtension;
     private float maxExtension;
 
+    // Flag to force rendering the full rod for ponders
+    private boolean forceFullRender;
+
     public PneumaticCylinderRodSegmentBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
     }
@@ -95,6 +98,9 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
     }
 
     public float getLocalExtensionAmount(float partialTicks) {
+        if (forceFullRender)
+            return 1.0f;
+
         float renderedExtension = getRenderedExtension(partialTicks);
 
         float BASE_VISIBLE_ROD = 0.5f;
@@ -118,6 +124,8 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
         compound.putFloat("Extension", extension);
         compound.putFloat("PrevExtension", prevExtension);
         compound.putFloat("MaxExtension", maxExtension);
+
+        compound.putBoolean("ForceFullRender", forceFullRender);
     }
 
     @Override
@@ -134,5 +142,17 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
         extension = compound.getFloat("Extension");
         prevExtension = compound.getFloat("PrevExtension");
         maxExtension = compound.getFloat("MaxExtension");
+
+        forceFullRender = compound.getBoolean("ForceFullRender");
+    }
+
+    public void setForceFullRender(boolean forceFullRender) {
+        this.forceFullRender = forceFullRender;
+        setChanged();
+        sendData();
+    }
+
+    public boolean isForceFullRender() {
+        return forceFullRender;
     }
 }
