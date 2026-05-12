@@ -87,10 +87,6 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
         return assembling;
     }
 
-    /**
-     * Optional helper: resolves the parent if it exists in the same level.
-     * If the parent lives outside this SubLevel, use Sable's APIs to resolve parentSubLevelId.
-     */
     public PneumaticCylinderBlockEntity getParentBEInCurrentLevel() {
         if (level == null || parent == null)
             return null;

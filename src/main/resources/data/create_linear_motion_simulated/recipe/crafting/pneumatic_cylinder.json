@@ -1,0 +1,27 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "category": "misc",
+    "key": {
+        "S": {
+            "item": "create:shaft"
+        },
+        "C": {
+            "item": "create:copper_casing"
+        },
+        "B": {
+            "item": "create:copper_backtank"
+        },
+        "R": {
+            "item": "minecraft:redstone"
+        }
+    },
+    "pattern": [
+        " S ",
+        "CBC",
+        "RCR"
+    ],
+    "result": {
+        "id": "create_linear_motion_simulated:pneumatic_cylinder",
+        "count": 1
+    }
+}

@@ -90,10 +90,6 @@ public class PneumaticCylinderRodSegmentBlock extends DirectionalBlock implement
         double maxY = 10;
         double maxZ = 10;
 
-        /*
-         * Le segment est derrière la tête.
-         * Il pousse depuis le côté vers la tête, donc côté FACING.
-         */
         switch (facing) {
             case EAST -> {
                 minX = 16 - length;

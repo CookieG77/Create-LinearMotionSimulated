@@ -64,18 +64,6 @@ public class PneumaticCylinderRenderer extends SafeBlockEntityRenderer<Pneumatic
         ms.pushPose();
         ms.translate(localX, localY, localZ);
 
-        /*
-         * SHAFT_HALF is neutral along NORTH/SOUTH.
-         *
-         * Correct order for this transform builder:
-         * 1. center()
-         * 2. rotateToFace(facing)  -> align the shaft to the cylinder axis
-         * 3. rotateZDegrees(...)   -> roll around the shaft's local axis after alignment
-         * 4. uncenter()
-         *
-         * The previous order rotated before the final facing transform, which made the
-         * visual roll happen around the wrong axis depending on FACING.
-         */
         CachedBuffers.partial(AllPartialModels.SHAFT_HALF, state)
                 .center()
                 .rotateToFace(facing)

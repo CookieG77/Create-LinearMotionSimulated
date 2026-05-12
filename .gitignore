@@ -22,3 +22,5 @@ gradle-app.setting
 
 # Run folder
 run/
+run/*
+/run

@@ -97,13 +97,6 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
     public float getLocalExtensionAmount(float partialTicks) {
         float renderedExtension = getRenderedExtension(partialTicks);
 
-        /*
-         * La tête affiche déjà 0.5 block de tige.
-         *
-         * Segment 1 :
-         * - commence donc à extension > 0.5
-         * - amount = extension + 0.5 - 1
-         */
         float BASE_VISIBLE_ROD = 0.5f;
         return Math.max(0, Math.min(1, renderedExtension + BASE_VISIBLE_ROD - indexBehindHead));
     }

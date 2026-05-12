@@ -77,11 +77,6 @@ public class PneumaticCylinderBlock extends DirectionalKineticBlock implements I
         BlockPos placePos = context.getClickedPos();
         Direction clickedFace = context.getClickedFace();
 
-        /*
-         * Si on est accroupi, on ignore volontairement l'héritage depuis un piston voisin.
-         * Ça permet de placer un piston avec l'orientation caméra inversée, au lieu
-         * d'agrandir automatiquement le piston existant.
-         */
         if (context.getPlayer() != null && context.getPlayer().isCrouching()) {
             return context.getNearestLookingDirection();
         }

@@ -30,10 +30,6 @@ public class PneumaticCylinderPistonHeadRenderer extends SafeBlockEntityRenderer
                               int light,
                               int overlay) {
 
-        /*
-         * À extension 0, la tête affiche déjà la première moitié du morceau central.
-         * Ensuite on ajoute l'extension réelle par-dessus.
-         */
         float amount = Math.min(1.0f, BASE_VISIBLE_ROD + be.getRenderedExtension(partialTicks));
         if (amount <= 0.001f)
             return;
@@ -44,10 +40,6 @@ public class PneumaticCylinderPistonHeadRenderer extends SafeBlockEntityRenderer
 
         ms.pushPose();
 
-        /*
-         * Même offset que les segments : on recule le modèle de l'épaisseur de la tête
-         * vers le corps du vérin pour éviter une découpe visuelle.
-         */
         ms.translate(
                 -facing.getStepX() * HEAD_THICKNESS_BLOCKS,
                 -facing.getStepY() * HEAD_THICKNESS_BLOCKS,

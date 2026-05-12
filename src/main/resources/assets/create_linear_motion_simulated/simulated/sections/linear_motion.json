@@ -1,0 +1,11 @@
+{
+    "priority": 10000,
+    "title": {
+        "text": { "translate": "simulated.section.create_linear_motion_simulated.linear_motion" },
+        "background": "#aa39231c",
+        "color": "#ffffeb8c",
+        "secondary_color": "#ffcea05a"
+    },
+    "sprite": "simulated:banner",
+    "only_animate_on_hover": true
+}

@@ -1,4 +1,6 @@
 {
+  "simulated.section.create_linear_motion_simulated.linear_motion": "Linear Motion",
+
   "block.create_linear_motion_simulated.pneumatic_cylinder": "Pneumatic Cylinder",
 
   "block.create_linear_motion_simulated.google_tooltip.title": "Pneumatic Cylinder Info:",

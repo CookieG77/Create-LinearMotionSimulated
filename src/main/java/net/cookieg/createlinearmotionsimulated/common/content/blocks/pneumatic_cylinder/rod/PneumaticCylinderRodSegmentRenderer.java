@@ -39,9 +39,6 @@ public class PneumaticCylinderRodSegmentRenderer extends SafeBlockEntityRenderer
 
         ms.pushPose();
 
-        /*
-         * Tous les segments sont reculés de l'épaisseur de la tête vers le corps du vérin.
-         */
         ms.translate(
                 -facing.getStepX() * backOffset,
                 -facing.getStepY() * backOffset,

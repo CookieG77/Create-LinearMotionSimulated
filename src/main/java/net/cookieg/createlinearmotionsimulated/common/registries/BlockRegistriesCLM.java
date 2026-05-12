@@ -17,9 +17,6 @@ public class BlockRegistriesCLM {
     public static final DeferredRegister.Blocks BLOCKS =
             DeferredRegister.createBlocks(CreateLinearMotionSimulated.ID);
 
-    public static final DeferredRegister.Items ITEMS =
-            DeferredRegister.createItems(CreateLinearMotionSimulated.ID);
-
     public static final DeferredBlock<PneumaticCylinderBlock> PNEUMATIC_CYLINDER =
             BLOCKS.registerBlock(
                     "pneumatic_cylinder",
@@ -47,12 +44,8 @@ public class BlockRegistriesCLM {
                             .noOcclusion()
             );
 
-    public static final DeferredHolder<Item, BlockItem> PNEUMATIC_CYLINDER_ITEM =
-            ITEMS.register("pneumatic_cylinder",
-                    () -> new BlockItem(PNEUMATIC_CYLINDER.get(), new Item.Properties()));
 
     public static void register(IEventBus modEventBus) {
         BLOCKS.register(modEventBus);
-        ITEMS.register(modEventBus);
     }
 }

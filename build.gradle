@@ -169,6 +169,7 @@ dependencies {
     // Runtime dependencies for debuging and dev
     localRuntime files("libs/sable-neoforge-${minecraft_version}-${sable_version}.jar")
     localRuntime files("libs/create-aeronautics-bundled-1.21.1-1.2.1.jar")
+    localRuntime files("libs/jei-${minecraft_version}-neoforge-${jei_version}.jar")
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

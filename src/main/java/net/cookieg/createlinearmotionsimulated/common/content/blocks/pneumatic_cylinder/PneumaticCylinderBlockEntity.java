@@ -57,9 +57,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     private static final int MAX_WIDTH = 1;
     private static final int MAX_LENGTH = 16;
 
-    private static final float HEAD_THICKNESS_BLOCKS = 3f / 16f;
-    private static final float SEGMENT_EARLY_APPEARANCE = 0.5f;
-
     protected BlockPos controller;
     protected BlockPos lastKnownPos;
 
@@ -106,10 +103,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     }
 
     @Override
-    public void addBehaviours(List<BlockEntityBehaviour> behaviours) {
-    }
-
-    @Override
     public void tick() {
         super.tick();
 
@@ -135,11 +128,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     }
 
     private void onPositionChanged() {
-        /*
-         * Quand Sable déplace / split un SubLevel, worldPosition peut changer
-         * temporairement ou être réinterprété. Il ne faut surtout pas casser la
-         * connectivité Create ici, sinon le corps du vérin repasse en SINGLE.
-         */
         if (assembled || Sable.HELPER.getContaining(this) != null) {
             lastKnownPos = worldPosition;
             setChanged();
@@ -180,14 +168,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
         int sampledRedstonePower = computeRedstonePower();
 
-        /*
-         * Délai de stabilisation redstone :
-         * - tick N : on détecte le changement
-         * - tick N+1 : on applique la nouvelle valeur si elle est encore présente
-         *
-         * Ça évite d'assembler/désassembler pendant que la connectivité multiblock
-         * vient juste d'être modifiée par neighborChanged/onPlace/Sable.
-         */
         if (sampledRedstonePower != previousRedstonePower) {
             previousRedstonePower = sampledRedstonePower;
             redstoneChangePending = true;
@@ -277,10 +257,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             return;
         }
 
-        /*
-         * Interaction joueur : priorité à l'action manuelle.
-         * On annule le pending redstone pour éviter un retour immédiat au tick suivant.
-         */
         redstoneChangePending = false;
         stableRedstonePower = computeRedstonePower();
         previousRedstonePower = stableRedstonePower;
@@ -322,10 +298,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             if (existingState.canBeReplaced()
                     || existingState.is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_PISTON_HEAD.get())) {
 
-                /*
-                 * Cas normal : il n'y a rien devant le vérin.
-                 * On place une tête temporaire, puis on assemble depuis cette tête.
-                 */
                 if (!existingState.is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_PISTON_HEAD.get()))
                     level.setBlockAndUpdate(temporaryHeadWorldPos, headState);
 
@@ -347,20 +319,9 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
                     return;
                 }
 
-                /*
-                 * IMPORTANT :
-                 * L'offset est relatif au block réellement assemblé, donc ici la tête temporaire.
-                 */
                 assembledHeadPos = temporaryHeadWorldPos.offset(result.offset());
 
             } else {
-                /*
-                 * Cas avec un block déjà collé/devant la tête.
-                 *
-                 * On assemble la structure qui commence devant le vérin,
-                 * puis on insère la tête dans le plot à la position front + offset.
-                 * Comme front n'a pas été assemblé, cette case du plot doit être libre.
-                 */
                 result = SimAssemblyHelper.assembleFromSingleBlock(serverLevel, front, temporaryHeadWorldPos, false, false);
                 lastAssemblyException = null;
 
@@ -1033,11 +994,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
                     segmentBE.setIndexBehindHead(i);
                     segmentBE.setAssembling(false);
 
-                    /*
-                     * Important :
-                     * Le segment ne dépend plus du lookup de la tête.
-                     * Ça évite que le visuel casse quand Sable découpe / split un SubLevel.
-                     */
                     segmentBE.setExtensionData(extension, prevExtension, getMaxExtension());
                 }
 
@@ -1080,8 +1036,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         if (!(level instanceof ServerLevel serverLevel))
             return;
 
-        ServerSubLevelContainer container =
-                (ServerSubLevelContainer) SubLevelContainer.getContainer(serverLevel);
+        ServerSubLevelContainer container = SubLevelContainer.getContainer(serverLevel);
 
         if (container == null)
             return;
@@ -1139,11 +1094,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     }
 
     private Set<ConstraintJointAxis> getLockedConstraintAxes() {
-        /*
-         * Pour l'instant on utilise le mode le plus stable :
-         * toutes les libertés sont verrouillées, et on déplace le frame cible.
-         * Ça évite les blocages observés avec setMotor sur l'axe linéaire.
-         */
         return EnumSet.allOf(ConstraintJointAxis.class);
     }
 
@@ -1228,11 +1178,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
         SubLevel attached = getAttachedHeadSubLevel();
 
-        /*
-         * Au chargement du monde, le SubLevelContainer peut ne pas avoir
-         * encore réexposé le SubLevel au premier tick. Dans ce cas, on réessaie
-         * aux ticks suivants.
-         */
         if (!(attached instanceof ServerSubLevel headSubLevel))
             return;
 

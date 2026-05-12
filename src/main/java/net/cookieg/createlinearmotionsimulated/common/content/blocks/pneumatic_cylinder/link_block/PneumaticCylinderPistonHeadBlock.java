@@ -90,13 +90,6 @@ public class PneumaticCylinderPistonHeadBlock extends DirectionalBlock implement
         return shape;
     }
 
-    /*
-     * IMPORTANT:
-     * La tête est à extension 0 dans le même espace que le block FRONT du cylindre.
-     * Elle complète donc la partie manquante côté FRONT du cylindre.
-     *
-     * Si FACING = EAST, le front du block est côté +X, donc x=13..16.
-     */
     private static VoxelShape headShape(Direction facing) {
         double minX = 0;
         double minY = 0;
@@ -117,10 +110,6 @@ public class PneumaticCylinderPistonHeadBlock extends DirectionalBlock implement
         return Block.box(minX, minY, minZ, maxX, maxY, maxZ);
     }
 
-    /*
-     * Premier morceau de tige rendu/collisionné par la tête elle-même.
-     * Il pousse depuis le côté back de la tête vers son centre.
-     */
     private static VoxelShape headRodShape(Direction facing, float amount) {
         if (amount <= 0.001f)
             return Shapes.empty();

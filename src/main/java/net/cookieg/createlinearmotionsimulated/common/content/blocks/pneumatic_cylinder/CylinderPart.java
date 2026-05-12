@@ -11,10 +11,14 @@ import org.jetbrains.annotations.NotNull;
  * - ASSEMBLED describes whether the mobile piston head has been extracted into a Sable SubLevel.
  */
 public enum CylinderPart implements StringRepresentable {
+    /// only block: Create mechanical input and rod/head output side
     SINGLE("single"),
-    BACK("back"),       // rear side: Create mechanical input side
+    /// rear side: Create mechanical input side
+    BACK("back"),
+    /// middle side(s): purely visual, no input or output side
     MIDDLE("middle"),
-    FRONT("front");     // front side: rod/head output side
+    /// front side: rod/head output side
+    FRONT("front");
 
     private final String serializedName;
 

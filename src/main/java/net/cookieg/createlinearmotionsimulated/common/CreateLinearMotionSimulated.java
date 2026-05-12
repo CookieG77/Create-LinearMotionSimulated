@@ -3,9 +3,7 @@ package net.cookieg.createlinearmotionsimulated.common;
 import com.mojang.logging.LogUtils;
 import com.tterrag.registrate.Registrate;
 import com.tterrag.registrate.util.nullness.NonNullSupplier;
-import net.cookieg.createlinearmotionsimulated.common.registries.BlockEntityRegistriesCLM;
-import net.cookieg.createlinearmotionsimulated.common.registries.BlockRegistriesCLM;
-import net.cookieg.createlinearmotionsimulated.common.registries.PartialModelRegistriesCLM;
+import net.cookieg.createlinearmotionsimulated.common.registries.*;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.CreativeModeTab;
@@ -22,7 +20,9 @@ public class CreateLinearMotionSimulated {
     public CreateLinearMotionSimulated(IEventBus modEventBus, ModContainer modContainer) {
         BlockRegistriesCLM.register(modEventBus);
         BlockEntityRegistriesCLM.register(modEventBus);
+        ItemRegistriesCLM.register(modEventBus);
 
+        SimulatedCreativeTabIntegrationCLM.registerItems();
     }
 
     public static ResourceLocation path(final String path) {
