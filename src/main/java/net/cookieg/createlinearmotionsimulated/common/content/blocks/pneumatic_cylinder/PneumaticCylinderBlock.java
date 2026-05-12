@@ -77,18 +77,26 @@ public class PneumaticCylinderBlock extends DirectionalKineticBlock implements I
         BlockPos placePos = context.getClickedPos();
         Direction clickedFace = context.getClickedFace();
 
+        /*
+         * Si on est accroupi, on ignore volontairement l'héritage depuis un piston voisin.
+         * Ça permet de placer un piston avec l'orientation caméra inversée, au lieu
+         * d'agrandir automatiquement le piston existant.
+         */
+        if (context.getPlayer() != null && context.getPlayer().isCrouching()) {
+            return context.getNearestLookingDirection();
+        }
+
         BlockPos attachedPos = placePos.relative(clickedFace.getOpposite());
 
         Direction inherited = getInheritedFacingFrom(level, attachedPos, clickedFace);
         if (inherited != null)
-            return applySneakInvert(context, inherited);
+            return inherited;
 
         inherited = getInheritedFacingFrom(level, placePos, clickedFace);
         if (inherited != null)
-            return applySneakInvert(context, inherited);
+            return inherited;
 
-        Direction facing = context.getNearestLookingDirection().getOpposite();
-        return applySneakInvert(context, facing);
+        return context.getNearestLookingDirection().getOpposite();
     }
 
     @Nullable
@@ -105,13 +113,6 @@ public class PneumaticCylinderBlock extends DirectionalKineticBlock implements I
             return null;
 
         return existingFacing;
-    }
-
-    private Direction applySneakInvert(BlockPlaceContext context, Direction facing) {
-        if (context.getPlayer() != null && context.getPlayer().isCrouching())
-            return facing.getOpposite();
-
-        return facing;
     }
 
     @Override
@@ -163,15 +164,13 @@ public class PneumaticCylinderBlock extends DirectionalKineticBlock implements I
         if (level.isClientSide)
             return;
 
-        /*
-         * Quand le vérin est assemblé, le controller relit déjà la redstone chaque tick.
-         * Ne pas reformer la connectivité ici, sinon un signal redstone pendant un split
-         * Sable peut fragmenter le multiblock visuel en plusieurs SINGLE.
-         */
-        if (state.getValue(ASSEMBLED))
-            return;
-
         withBlockEntityDo(level, pos, PneumaticCylinderBlockEntity::queueConnectivityUpdate);
+
+        /*
+         * On ne déclenche pas l'assemblage directement ici.
+         * La BlockEntity applique un délai d'un tick côté redstone.
+         */
+        level.scheduleTick(pos, this, 1);
     }
 
     @Override

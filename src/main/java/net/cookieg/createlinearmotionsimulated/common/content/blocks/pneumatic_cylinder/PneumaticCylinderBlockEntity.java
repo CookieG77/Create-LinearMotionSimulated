@@ -25,6 +25,7 @@ import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_c
 import net.cookieg.createlinearmotionsimulated.common.registries.BlockEntityRegistriesCLM;
 import net.cookieg.createlinearmotionsimulated.common.registries.BlockRegistriesCLM;
 import net.createmod.catnip.nbt.NBTHelper;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -86,6 +87,9 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     protected float targetExtension;
 
     protected int redstonePower;
+    protected int previousRedstonePower;
+    protected int stableRedstonePower;
+    protected boolean redstoneChangePending;
 
     protected boolean assembleRequested;
     protected boolean disassembleRequested;
@@ -174,7 +178,31 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             assembleHead();
         }
 
-        redstonePower = computeRedstonePower();
+        int sampledRedstonePower = computeRedstonePower();
+
+        /*
+         * Délai de stabilisation redstone :
+         * - tick N : on détecte le changement
+         * - tick N+1 : on applique la nouvelle valeur si elle est encore présente
+         *
+         * Ça évite d'assembler/désassembler pendant que la connectivité multiblock
+         * vient juste d'être modifiée par neighborChanged/onPlace/Sable.
+         */
+        if (sampledRedstonePower != previousRedstonePower) {
+            previousRedstonePower = sampledRedstonePower;
+            redstoneChangePending = true;
+
+            setChanged();
+            sendData();
+            return;
+        }
+
+        if (redstoneChangePending) {
+            redstoneChangePending = false;
+            stableRedstonePower = sampledRedstonePower;
+        }
+
+        redstonePower = stableRedstonePower;
 
         boolean hasRotation = hasKineticInput();
         boolean powered = redstonePower > 0;
@@ -195,6 +223,8 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             targetExtension = powered && hasRotation && assembled ? getMaxExtension() : 0;
 
         float speed = getLinearSpeedBlocksPerTick();
+
+        // garde la suite actuelle inchangée...
 
         if (speed <= 0.0001f) {
             if (assembled) {
@@ -246,6 +276,15 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
                 controllerBE.requestToggleAssembly();
             return;
         }
+
+        /*
+         * Interaction joueur : priorité à l'action manuelle.
+         * On annule le pending redstone pour éviter un retour immédiat au tick suivant.
+         */
+        redstoneChangePending = false;
+        stableRedstonePower = computeRedstonePower();
+        previousRedstonePower = stableRedstonePower;
+        redstonePower = stableRedstonePower;
 
         if (assembled) {
             disassembleRequested = true;
@@ -576,7 +615,12 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         extension = 0;
         prevExtension = 0;
         targetExtension = 0;
+
         redstonePower = 0;
+        previousRedstonePower = 0;
+        stableRedstonePower = 0;
+        redstoneChangePending = false;
+
         assembleRequested = false;
         disassembleRequested = false;
         lastAssemblyException = null;
@@ -725,6 +769,11 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         prevExtension = extension;
         targetExtension = compound.getFloat("TargetExtension");
         redstonePower = compound.getInt("RedstonePower");
+        previousRedstonePower = compound.getInt("PreviousRedstonePower");
+        stableRedstonePower = compound.contains("StableRedstonePower")
+                ? compound.getInt("StableRedstonePower")
+                : redstonePower;
+        redstoneChangePending = compound.getBoolean("RedstoneChangePending");
         assembleRequested = compound.getBoolean("AssembleRequested");
         disassembleRequested = compound.getBoolean("DisassembleRequested");
 
@@ -758,6 +807,9 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             compound.putFloat("Extension", extension);
             compound.putFloat("TargetExtension", targetExtension);
             compound.putInt("RedstonePower", redstonePower);
+            compound.putInt("PreviousRedstonePower", previousRedstonePower);
+            compound.putInt("StableRedstonePower", stableRedstonePower);
+            compound.putBoolean("RedstoneChangePending", redstoneChangePending);
             compound.putBoolean("AssembleRequested", assembleRequested);
             compound.putBoolean("DisassembleRequested", disassembleRequested);
         }
@@ -783,12 +835,13 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         if (controllerBE == null)
             return false;
 
-        tooltip.add(Component.literal("Pneumatic Cylinder"));
-        tooltip.add(Component.literal("Length: " + controllerBE.height));
-        tooltip.add(Component.literal("Assembled: " + controllerBE.assembled));
-        tooltip.add(Component.literal("Extension: " + String.format(java.util.Locale.ROOT, "%.2f", controllerBE.extension)));
-        tooltip.add(Component.literal("Redstone: " + controllerBE.redstonePower));
-        tooltip.add(Component.literal("Input Speed: " + String.format(java.util.Locale.ROOT, "%.1f rpm", controllerBE.getInputSpeed())));
+        tooltip.add(Component.literal("    ").append(Component.translatable("block.create_linear_motion_simulated.google_tooltip.title")));
+        tooltip.add(Component.translatable("block.create_linear_motion_simulated.google_tooltip.max_extension", Component.literal(String.format("%.2f", controllerBE.getMaxExtension())).withStyle(ChatFormatting.GOLD)));
+        tooltip.add(Component.translatable("block.create_linear_motion_simulated.google_tooltip.extension", Component.literal(String.format("%.2f", controllerBE.extension)).withStyle(ChatFormatting.GOLD)));
+        tooltip.add(Component.translatable("block.create_linear_motion_simulated.google_tooltip.powered", controllerBE.redstonePower > 0
+                ? Component.translatable("block.create_linear_motion_simulated.google_tooltip.powered.yes").withStyle(ChatFormatting.GOLD)
+                : Component.translatable("block.create_linear_motion_simulated.google_tooltip.powered.no").withStyle(ChatFormatting.GOLD)
+        ));
         return true;
     }
 

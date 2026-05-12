@@ -186,5 +186,167 @@
     },
     "done": true
   },
+  "minecraft:recipes/tools/lead": {
+    "criteria": {
+      "has_slime_ball": "2026-05-12 01:24:23 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/redstone/sticky_piston": {
+    "criteria": {
+      "has_slime_ball": "2026-05-12 01:24:23 +0200"
+    },
+    "done": true
+  },
+  "minecraft:recipes/redstone/slime_block": {
+    "criteria": {
+      "has_slime_ball": "2026-05-12 01:24:23 +0200"
+    },
+    "done": true
+  },
+  "create:wrench_goggles": {
+    "criteria": {
+      "0": "2026-05-12 01:26:38 +0200"
+    },
+    "done": false
+  },
+  "minecraft:recipes/decorations/chest": {
+    "criteria": {
+      "has_lots_of_items": "2026-05-12 01:26:44 +0200"
+    },
+    "done": true
+  },
+  "aeronautics:high_fashion": {
+    "criteria": {
+      "0": "2026-05-12 01:26:44 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/brown_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/magenta_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/light_blue_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/orange_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/green_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/purple_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/white_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/misc/crafting/kinetics/fluid_tank": {
+    "criteria": {
+      "has_item": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/gray_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/pink_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/black_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/cyan_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/yellow_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/red_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/misc/crafting/kinetics/item_vault": {
+    "criteria": {
+      "has_item": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/lime_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/light_gray_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:recipes/building_blocks/crafting/logistics/blue_postbox": {
+    "criteria": {
+      "has_barrel": "2026-05-12 01:26:58 +0200"
+    },
+    "done": true
+  },
+  "create:super_glue": {
+    "criteria": {
+      "0": "2026-05-12 01:27:23 +0200"
+    },
+    "done": true
+  },
+  "create:burner": {
+    "criteria": {
+      "0": "2026-05-12 01:49:31 +0200"
+    },
+    "done": true
+  },
+  "simulated:nearsighted": {
+    "criteria": {
+      "0": "2026-05-12 02:02:03 +0200"
+    },
+    "done": true
+  },
   "DataVersion": 3955
 }
