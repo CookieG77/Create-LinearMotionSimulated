@@ -3,6 +3,13 @@
   <img src="https://img.shields.io/badge/Loader-NeoForge-orange?style=for-the-badge" alt="NeoForge">
   <img src="https://img.shields.io/badge/Requires-Create-blue?style=for-the-badge" alt="Requires Create">
   <img src="https://img.shields.io/badge/Built%20for-Create%20Simulated-purple?style=for-the-badge" alt="Create Simulated">
+  </br>
+  <a href="https://modrinth.com/mod/create-linear-motion-simulated">
+    <img src="https://img.shields.io/modrinth/dt/create-linear-motion-simulated?style=for-the-badge&logo=modrinth&label=Modrinth%20Downloads" alt="Modrinth Downloads">
+  </a>
+  <a href="https://www.curseforge.com/minecraft/mc-mods/create-linear-motion-simulated">
+    <img src="https://img.shields.io/curseforge/dt/create-linear-motion-simulated?style=for-the-badge&logo=curseforge&label=CurseForge%20Downloads" alt="CurseForge Downloads">
+  </a>
 </p>
 
 # Create: Linear Motion Simulated
@@ -136,7 +143,7 @@ If you encounter issues, please report them with:
 
 Code and project by **CookieG77**.
 
-Textures are the exclusive property of **jimmy421x67**.
+Textures are the exclusive property of **[jimmy421x67](https://modrinth.com/user/jimmy421x67)**.
 
 This mod depends on and is inspired by the Create ecosystem, including Create, Create: Simulated, Create: Aeronautics, and Sable.
 
