@@ -2,6 +2,9 @@
   "simulated.section.create_linear_motion_simulated.linear_motion": "Linear Motion",
 
   "block.create_linear_motion_simulated.pneumatic_cylinder": "Pneumatic Cylinder",
+  "block.create_linear_motion_simulated.pneumatic_cylinder.shaft_installed": "Shaft installed",
+  "block.create_linear_motion_simulated.pneumatic_cylinder.shaft_removed": "Shaft removed",
+  "block.create_linear_motion_simulated.pneumatic_cylinder.shaft_toggle_assembled": "Cannot change shaft mode while the cylinder is assembled",
 
   "block.create_linear_motion_simulated.google_tooltip.title": "Pneumatic Cylinder Info:",
   "block.create_linear_motion_simulated.google_tooltip.max_extension": "Max Extension: %2f",
@@ -9,6 +12,12 @@
   "block.create_linear_motion_simulated.google_tooltip.powered": "Is Powered: %s",
   "block.create_linear_motion_simulated.google_tooltip.powered.yes": "Yes",
   "block.create_linear_motion_simulated.google_tooltip.powered.no": "No",
+  "block.create_linear_motion_simulated.google_tooltip.mode": "Mode: %s",
+  "block.create_linear_motion_simulated.google_tooltip.mode.free": "Free sliding",
+  "block.create_linear_motion_simulated.google_tooltip.mode.locked": "Shaft driven",
+  "block.create_linear_motion_simulated.google_tooltip.free_axis": "The piston head can slide freely on its axis",
+  "block.create_linear_motion_simulated.google_tooltip.redstone_ignored": "Redstone signals are ignored without a shaft",
+
 
   "create_linear_motion_simulated.ponder.pneumatic_cylinder.header" : "Moving Structures using the Pneumatic Cylinder",
   "create_linear_motion_simulated.ponder.pneumatic_cylinder.text_1" : "Pneumatic Cylinder attach to the block in front of them",

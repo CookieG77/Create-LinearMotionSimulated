@@ -18,8 +18,6 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
 
-import static net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING;
-
 public class PneumaticCylinderRodSegmentBlock extends DirectionalBlock implements IBE<PneumaticCylinderRodSegmentBlockEntity> {
 
     public static final MapCodec<PneumaticCylinderRodSegmentBlock> CODEC =
@@ -31,7 +29,7 @@ public class PneumaticCylinderRodSegmentBlock extends DirectionalBlock implement
     }
 
     @Override
-    protected MapCodec<? extends DirectionalBlock> codec() {
+    protected @NotNull MapCodec<? extends DirectionalBlock> codec() {
         return CODEC;
     }
 

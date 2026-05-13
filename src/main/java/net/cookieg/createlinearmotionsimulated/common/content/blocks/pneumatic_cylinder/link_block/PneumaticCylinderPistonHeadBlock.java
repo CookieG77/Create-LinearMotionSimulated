@@ -20,7 +20,6 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
 import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.PneumaticCylinderBlockEntity;
-import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
@@ -38,7 +37,7 @@ public class PneumaticCylinderPistonHeadBlock extends DirectionalBlock implement
     }
 
     @Override
-    protected MapCodec<? extends DirectionalBlock> codec() {
+    protected @NotNull MapCodec<? extends DirectionalBlock> codec() {
         return CODEC;
     }
 
@@ -67,7 +66,7 @@ public class PneumaticCylinderPistonHeadBlock extends DirectionalBlock implement
     }
 
     @Override
-    public @NotNull VoxelShape getShape(BlockState state,
+    public @NotNull VoxelShape getShape(@NotNull BlockState state,
                                         @NotNull BlockGetter level,
                                         @NotNull BlockPos pos,
                                         @NotNull CollisionContext context) {

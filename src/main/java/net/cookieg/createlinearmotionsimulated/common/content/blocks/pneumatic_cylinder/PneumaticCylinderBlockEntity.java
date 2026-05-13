@@ -78,6 +78,8 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     protected boolean rebuildConstraintOnLoad;
 
     protected BlockPos shaftPos;
+    // Flag to change the multiblock behavior between free and constrained movement
+    protected boolean shaftInstalled;
 
     protected float extension;
     protected float prevExtension;
@@ -87,9 +89,16 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     protected int previousRedstonePower;
     protected int stableRedstonePower;
     protected boolean redstoneChangePending;
+    /**
+     * Set after a manual disassembly while redstone is still high.
+     * Prevents instant re-assembly until the signal goes back to 0 once.
+     */
+    protected boolean redstoneResetRequired;
 
     protected boolean assembleRequested;
     protected boolean disassembleRequested;
+
+
 
     public PneumaticCylinderBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
@@ -163,30 +172,25 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
         if (assembleRequested) {
             assembleRequested = false;
+            redstoneResetRequired = false;
             assembleHead();
         }
 
-        int sampledRedstonePower = computeRedstonePower();
+        int sampledRedstonePower = shaftInstalled ? computeRedstonePower() : 0;
 
-        if (sampledRedstonePower != previousRedstonePower) {
-            previousRedstonePower = sampledRedstonePower;
-            redstoneChangePending = true;
+        if (sampledRedstonePower <= 0)
+            redstoneResetRequired = false;
 
-            setChanged();
-            sendData();
-            return;
-        }
+        redstonePower = shaftInstalled ? sampledRedstonePower : 0;
 
-        if (redstoneChangePending) {
-            redstoneChangePending = false;
-            stableRedstonePower = sampledRedstonePower;
-        }
+        boolean hasRotation = shaftInstalled && hasKineticInput();
+        boolean powered = shaftInstalled && redstonePower > 0 && !redstoneResetRequired;
 
-        redstonePower = stableRedstonePower;
-
-        boolean hasRotation = hasKineticInput();
-        boolean powered = redstonePower > 0;
-
+        /*
+         * Redstone auto-assembly only exists when a shaft is installed.
+         * If the player manually disassembled while the signal was still high,
+         * redstoneResetRequired keeps this false until the signal returns to 0.
+         */
         if (!assembled && powered) {
             assembleHead();
 
@@ -199,18 +203,27 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
         if (disassembleRequested)
             targetExtension = 0;
+        else if (!shaftInstalled)
+            targetExtension = extension;
         else
             targetExtension = powered && hasRotation && assembled ? getMaxExtension() : 0;
 
-        float speed = getLinearSpeedBlocksPerTick();
-
-        // garde la suite actuelle inchangée...
+        /*
+         * Manual disassembly must always pull the head back, even with no shaft
+         * and even with no kinetic input. Use the same nominal linear speed as
+         * 256 rpm: 2 blocks/s = 0.1 block/tick.
+         */
+        float speed = disassembleRequested ? getForcedReturnSpeedBlocksPerTick()
+                : shaftInstalled ? getLinearSpeedBlocksPerTick()
+                : 0;
 
         if (speed <= 0.0001f) {
             if (assembled) {
                 syncHeadActorData();
                 syncRodSegments();
-                updateAttachedHeadConstraint(extension);
+
+                if (shaftInstalled || disassembleRequested)
+                    updateAttachedHeadConstraint(extension);
             }
 
             setChanged();
@@ -225,17 +238,19 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         else if (extension > targetExtension)
             extension = Math.max(targetExtension, extension - speed);
 
+        if (assembled) {
+            syncHeadActorData();
+            syncRodSegments();
+
+            if (shaftInstalled || disassembleRequested)
+                updateAttachedHeadConstraint(extension);
+        }
+
         if (disassembleRequested && extension <= 0.001f) {
             extension = 0;
             disassembleRequested = false;
             disassembleHead();
             return;
-        }
-
-        if (assembled) {
-            syncHeadActorData();
-            syncRodSegments();
-            updateAttachedHeadConstraint(extension);
         }
 
         if (extension != previous)
@@ -257,15 +272,27 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             return;
         }
 
-        redstoneChangePending = false;
-        stableRedstonePower = computeRedstonePower();
-        previousRedstonePower = stableRedstonePower;
-        redstonePower = stableRedstonePower;
-
         if (assembled) {
             disassembleRequested = true;
+            assembleRequested = false;
             targetExtension = 0;
+
+            /*
+             * If the signal is still high when the player manually disassembles,
+             * latch the redstone state so the piston does not immediately
+             * re-assemble after reaching zero. It must see a 0 signal first.
+             */
+            redstoneResetRequired = shaftInstalled && computeRedstonePower() > 0;
+
+            /*
+             * In free mode the initial constraint is a rail. Rebuild it as a
+             * locked constraint during manual return so the head is actually
+             * pulled back to the base position.
+             */
+            rebuildAttachedHeadConstraint();
+            updateAttachedHeadConstraint(extension);
         } else {
+            redstoneResetRequired = false;
             assembleRequested = true;
         }
 
@@ -466,13 +493,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
     private boolean shouldHaveShaft() {
         PneumaticCylinderBlockEntity controllerBE = getControllerBE();
-        if (controllerBE == null)
-            return false;
-
-        if (controllerBE.getWidth() <= 1)
-            return worldPosition.equals(controllerBE.getBackOrigin());
-
-        return controllerBE.shaftPos != null && worldPosition.equals(controllerBE.shaftPos);
+        return controllerBE != null && controllerBE.shaftInstalled;
     }
 
     public boolean isOnBackFace(BlockPos pos) {
@@ -487,10 +508,15 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             return;
         }
 
+        if (assembled)
+            return;
+
         if (pos != null && !isOnBackFace(pos))
             return;
 
         shaftPos = pos;
+        shaftInstalled = pos != null;
+
         updateAllPartStates();
         setChanged();
         sendData();
@@ -569,6 +595,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         width = 1;
         height = 1;
         shaftPos = null;
+        shaftInstalled = false;
         assembled = false;
 
         pistonHeadPos = null;
@@ -581,6 +608,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         previousRedstonePower = 0;
         stableRedstonePower = 0;
         redstoneChangePending = false;
+        redstoneResetRequired = false;
 
         assembleRequested = false;
         disassembleRequested = false;
@@ -625,10 +653,11 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
         PneumaticCylinderBlockEntity controllerBE = getControllerBE();
         boolean controllerAssembled = controllerBE != null && controllerBE.assembled;
+        boolean controllerHasShaft = controllerBE != null && controllerBE.shaftInstalled;
 
         BlockState newState = state
                 .setValue(PneumaticCylinderBlock.PART, computePart())
-                .setValue(PneumaticCylinderBlock.HAS_SHAFT, shouldHaveShaft())
+                .setValue(PneumaticCylinderBlock.HAS_SHAFT, controllerHasShaft)
                 .setValue(PneumaticCylinderBlock.ASSEMBLED, controllerAssembled);
 
         if (newState != state) {
@@ -714,6 +743,10 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
                 ? NbtUtils.readBlockPos(compound, "ShaftPos").orElse(null)
                 : null;
 
+        shaftInstalled = compound.contains("ShaftInstalled")
+                ? compound.getBoolean("ShaftInstalled")
+                : shaftPos != null;
+
         pistonHeadPos = compound.contains("PistonHeadPos")
                 ? NbtUtils.readBlockPos(compound, "PistonHeadPos").orElse(null)
                 : null;
@@ -735,9 +768,17 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
                 ? compound.getInt("StableRedstonePower")
                 : redstonePower;
         redstoneChangePending = compound.getBoolean("RedstoneChangePending");
+        redstoneResetRequired = compound.getBoolean("RedstoneResetRequired");
         assembleRequested = compound.getBoolean("AssembleRequested");
         disassembleRequested = compound.getBoolean("DisassembleRequested");
 
+        if (!shaftInstalled) {
+            redstonePower = 0;
+            previousRedstonePower = 0;
+            stableRedstonePower = 0;
+            redstoneChangePending = false;
+            redstoneResetRequired = false;
+        }
 
         if (clientPacket && hasLevel())
             level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 16);
@@ -756,6 +797,8 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             compound.putInt("Size", width);
             compound.putInt("Height", height);
             compound.putBoolean("Assembled", assembled);
+            compound.putBoolean("ShaftInstalled", shaftInstalled);
+
             if (shaftPos != null)
                 compound.put("ShaftPos", NbtUtils.writeBlockPos(shaftPos));
             if (pistonHeadPos != null)
@@ -771,6 +814,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             compound.putInt("PreviousRedstonePower", previousRedstonePower);
             compound.putInt("StableRedstonePower", stableRedstonePower);
             compound.putBoolean("RedstoneChangePending", redstoneChangePending);
+            compound.putBoolean("RedstoneResetRequired", redstoneResetRequired);
             compound.putBoolean("AssembleRequested", assembleRequested);
             compound.putBoolean("DisassembleRequested", disassembleRequested);
         }
@@ -784,6 +828,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             compound.putInt("Size", width);
             compound.putInt("Height", height);
             compound.putBoolean("Assembled", assembled);
+            compound.putBoolean("ShaftInstalled", shaftInstalled);
             compound.putInt("RedstonePower", redstonePower);
         }
 
@@ -796,13 +841,48 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         if (controllerBE == null)
             return false;
 
-        tooltip.add(Component.literal("    ").append(Component.translatable("block.create_linear_motion_simulated.google_tooltip.title")));
-        tooltip.add(Component.translatable("block.create_linear_motion_simulated.google_tooltip.max_extension", Component.literal(String.format("%.2f", controllerBE.getMaxExtension())).withStyle(ChatFormatting.GOLD)));
-        tooltip.add(Component.translatable("block.create_linear_motion_simulated.google_tooltip.extension", Component.literal(String.format("%.2f", controllerBE.extension)).withStyle(ChatFormatting.GOLD)));
-        tooltip.add(Component.translatable("block.create_linear_motion_simulated.google_tooltip.powered", controllerBE.redstonePower > 0
-                ? Component.translatable("block.create_linear_motion_simulated.google_tooltip.powered.yes").withStyle(ChatFormatting.GOLD)
-                : Component.translatable("block.create_linear_motion_simulated.google_tooltip.powered.no").withStyle(ChatFormatting.GOLD)
+        tooltip.add(Component.literal("    ")
+                .append(Component.translatable("block.create_linear_motion_simulated.google_tooltip.title")));
+
+        tooltip.add(Component.translatable(
+                "block.create_linear_motion_simulated.google_tooltip.max_extension",
+                Component.literal(String.format("%.2f", controllerBE.getMaxExtension())).withStyle(ChatFormatting.GOLD)
         ));
+
+        if (!controllerBE.hasShaftInstalled()) {
+            tooltip.add(Component.translatable(
+                    "block.create_linear_motion_simulated.google_tooltip.mode",
+                    Component.translatable("block.create_linear_motion_simulated.google_tooltip.mode.free").withStyle(ChatFormatting.GOLD)
+            ));
+
+            tooltip.add(Component.translatable(
+                    "block.create_linear_motion_simulated.google_tooltip.free_axis"
+            ));
+
+            tooltip.add(Component.translatable(
+                    "block.create_linear_motion_simulated.google_tooltip.redstone_ignored"
+            ));
+
+            return true;
+        }
+
+        tooltip.add(Component.translatable(
+                "block.create_linear_motion_simulated.google_tooltip.mode",
+                Component.translatable("block.create_linear_motion_simulated.google_tooltip.mode.locked").withStyle(ChatFormatting.GOLD)
+        ));
+
+        tooltip.add(Component.translatable(
+                "block.create_linear_motion_simulated.google_tooltip.extension",
+                Component.literal(String.format("%.2f", controllerBE.extension)).withStyle(ChatFormatting.GOLD)
+        ));
+
+        tooltip.add(Component.translatable(
+                "block.create_linear_motion_simulated.google_tooltip.powered",
+                controllerBE.redstonePower > 0
+                        ? Component.translatable("block.create_linear_motion_simulated.google_tooltip.powered.yes").withStyle(ChatFormatting.GOLD)
+                        : Component.translatable("block.create_linear_motion_simulated.google_tooltip.powered.no").withStyle(ChatFormatting.GOLD)
+        ));
+
         return true;
     }
 
@@ -815,10 +895,14 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     }
 
     public float getInputSpeed() {
+        PneumaticCylinderBlockEntity controllerBE = getControllerBE();
+        if (controllerBE == null || !controllerBE.shaftInstalled)
+            return 0;
+
         if (level == null)
             return 0;
 
-        BlockPos inputPos = getShaftInputPos();
+        BlockPos inputPos = controllerBE.getShaftInputPos();
         if (inputPos == null)
             return 0;
 
@@ -829,28 +913,25 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
                 return speed;
         }
 
-        PneumaticCylinderBlockEntity controllerBE = getControllerBE();
-        if (controllerBE != null)
-            return controllerBE.getSpeed();
-
-        return 0;
+        return controllerBE.getSpeed();
     }
 
     public float getRenderedShaftAngle(float partialTicks) {
+        PneumaticCylinderBlockEntity controllerBE = getControllerBE();
+        if (controllerBE == null || !controllerBE.shaftInstalled)
+            return 0;
+
         if (level == null)
             return 0;
 
-        BlockPos inputPos = getShaftInputPos();
+        BlockPos inputPos = controllerBE.getShaftInputPos();
         if (inputPos == null)
             return 0;
 
         BlockEntity be = level.getBlockEntity(inputPos);
         PneumaticCylinderBlockEntity input = be instanceof PneumaticCylinderBlockEntity cylinder
                 ? cylinder
-                : getControllerBE();
-
-        if (input == null)
-            return 0;
+                : controllerBE;
 
         float radians = KineticBlockEntityRenderer.getAngleForBe(input, inputPos, getFacing().getAxis());
         return (float) Math.toDegrees(radians);
@@ -858,19 +939,27 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
     @Nullable
     public BlockPos getShaftInputPos() {
-        if (getWidth() <= 1)
-            return getBackOrigin();
+        PneumaticCylinderBlockEntity controllerBE = getControllerBE();
+        if (controllerBE == null || !controllerBE.shaftInstalled)
+            return null;
 
-        return shaftPos;
+        if (controllerBE.getWidth() <= 1)
+            return controllerBE.getBackOrigin();
+
+        return controllerBE.shaftPos;
     }
 
     public boolean hasKineticInput() {
-        return Math.abs(getInputSpeed()) > 0.001f;
+        return hasShaftInstalled() && Math.abs(getInputSpeed()) > 0.001f;
     }
 
     private float getLinearSpeedBlocksPerTick() {
         float rpm = Math.abs(getInputSpeed());
         return (rpm / 256f) * (2f / 20f);
+    }
+
+    private float getForcedReturnSpeedBlocksPerTick() {
+        return 2f / 20f;
     }
 
     private void onExtensionChanged(float oldExtension, float newExtension) {
@@ -887,7 +976,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             return 0;
 
         PneumaticCylinderBlockEntity controllerBE = getControllerBE();
-        if (controllerBE == null)
+        if (controllerBE == null || !controllerBE.shaftInstalled)
             return 0;
 
         Direction facing = controllerBE.getFacing();
@@ -960,7 +1049,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
         BlockEntity be = level.getBlockEntity(pistonHeadPos);
         if (be instanceof PneumaticCylinderPistonHeadBlockEntity headBE) {
-            headBE.setExtensionData(extension, getMaxExtension());
+            headBE.setExtensionData(getVisualExtension(), getMaxExtension());
         }
     }
 
@@ -972,8 +1061,20 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         Direction back = facing.getOpposite();
 
         int maxSegments = (int) Math.ceil(getMaxExtension());
+        float visualExtension = getVisualExtension();
 
-        int wantedSegments = Math.max(0, (int) Math.ceil(extension + BASE_VISIBLE_ROD - 0.001f) - 1);
+        int wantedSegments;
+        if (assembled && !shaftInstalled && !disassembleRequested) {
+            /*
+             * Free mode has no public pose API available here, so the exact
+             * continuous extension cannot be read safely. Keep the whole guide
+             * visually/collision-wise available up to the max length instead of
+             * leaving only the head rendered.
+             */
+            wantedSegments = maxSegments;
+        } else {
+            wantedSegments = Math.max(0, (int) Math.ceil(visualExtension + BASE_VISIBLE_ROD - 0.001f) - 1);
+        }
 
         for (int i = 1; i <= maxSegments; i++) {
             BlockPos segmentPos = pistonHeadPos.relative(back, i);
@@ -993,21 +1094,34 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
                     segmentBE.setHead(pistonHeadPos);
                     segmentBE.setIndexBehindHead(i);
                     segmentBE.setAssembling(false);
-
-                    segmentBE.setExtensionData(extension, prevExtension, getMaxExtension());
+                    segmentBE.setForceFullRender(assembled && !shaftInstalled && !disassembleRequested);
+                    segmentBE.setExtensionData(visualExtension, prevExtension, getMaxExtension());
                 }
 
                 BlockState state = level.getBlockState(segmentPos);
                 level.sendBlockUpdated(segmentPos, state, state, Block.UPDATE_CLIENTS);
             } else {
                 BlockEntity be = level.getBlockEntity(segmentPos);
-                if (be instanceof PneumaticCylinderRodSegmentBlockEntity segmentBE)
+                if (be instanceof PneumaticCylinderRodSegmentBlockEntity segmentBE) {
                     segmentBE.setAssembling(true);
+                    segmentBE.setForceFullRender(false);
+                }
 
                 if (level.getBlockState(segmentPos).is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get()))
                     level.setBlock(segmentPos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
             }
         }
+    }
+
+    private float getVisualExtension() {
+        if (assembled && !shaftInstalled && !disassembleRequested)
+            return getMaxExtension();
+
+        return clampExtension(extension);
+    }
+
+    private float clampExtension(float value) {
+        return Math.max(0, Math.min(getMaxExtension(), value));
     }
 
     private void destroyRodSegments() {
@@ -1094,7 +1208,31 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     }
 
     private Set<ConstraintJointAxis> getLockedConstraintAxes() {
-        return EnumSet.allOf(ConstraintJointAxis.class);
+        if (hasShaftInstalled() || disassembleRequested)
+            return EnumSet.allOf(ConstraintJointAxis.class);
+
+        EnumSet<ConstraintJointAxis> locked = EnumSet.noneOf(ConstraintJointAxis.class);
+
+        locked.add(ConstraintJointAxis.ANGULAR_X);
+        locked.add(ConstraintJointAxis.ANGULAR_Y);
+        locked.add(ConstraintJointAxis.ANGULAR_Z);
+
+        switch (getFacing().getAxis()) {
+            case X -> {
+                locked.add(ConstraintJointAxis.LINEAR_Y);
+                locked.add(ConstraintJointAxis.LINEAR_Z);
+            }
+            case Y -> {
+                locked.add(ConstraintJointAxis.LINEAR_X);
+                locked.add(ConstraintJointAxis.LINEAR_Z);
+            }
+            case Z -> {
+                locked.add(ConstraintJointAxis.LINEAR_X);
+                locked.add(ConstraintJointAxis.LINEAR_Y);
+            }
+        }
+
+        return locked;
     }
 
     private void updateAttachedHeadConstraint(float requestedExtension) {
@@ -1104,7 +1242,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         if (level == null || !(level instanceof ServerLevel serverLevel))
             return;
 
-        float clampedExtension = Math.max(0, Math.min(getMaxExtension(), requestedExtension));
+        float clampedExtension = clampExtension(requestedExtension);
         Direction facing = getFacing();
 
         pistonConstraint.setFrame1(
@@ -1127,6 +1265,18 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         SubLevel attached = getAttachedHeadSubLevel();
         if (attached instanceof ServerSubLevel headSubLevel)
             pipeline.wakeUp(headSubLevel);
+    }
+
+    private void rebuildAttachedHeadConstraint() {
+        if (level == null || level.isClientSide || !assembled || pistonHeadSubLevelId == null)
+            return;
+
+        SubLevel attached = getAttachedHeadSubLevel();
+        if (!(attached instanceof ServerSubLevel headSubLevel))
+            return;
+
+        destroyAttachedHeadConstraint();
+        createAttachedHeadConstraint(headSubLevel, pistonHeadPos != null ? pistonHeadPos : getFrontBlockPos());
     }
 
     private void destroyAttachedHeadConstraint() {
@@ -1161,6 +1311,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         extension = 0;
         prevExtension = 0;
         targetExtension = 0;
+        redstoneResetRequired = false;
 
         setChanged();
         sendData();
@@ -1188,6 +1339,63 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
         rebuildConstraintOnLoad = false;
 
+        setChanged();
+        sendData();
+    }
+
+    public boolean isAssembled() {
+        PneumaticCylinderBlockEntity controllerBE = getControllerBE();
+        return controllerBE != null && controllerBE.assembled;
+    }
+
+    public boolean hasShaftInstalled() {
+        PneumaticCylinderBlockEntity controllerBE = getControllerBE();
+        return controllerBE != null && controllerBE.shaftInstalled;
+    }
+
+    public void installShaft() {
+        if (!isController()) {
+            PneumaticCylinderBlockEntity controllerBE = getControllerBE();
+            if (controllerBE != null)
+                controllerBE.installShaft();
+            return;
+        }
+
+        if (assembled)
+            return;
+
+        shaftInstalled = true;
+        redstoneResetRequired = false;
+
+        if (width <= 1)
+            shaftPos = getBackOrigin();
+
+        updateAllPartStates();
+        setChanged();
+        sendData();
+    }
+
+    public void removeShaft() {
+        if (!isController()) {
+            PneumaticCylinderBlockEntity controllerBE = getControllerBE();
+            if (controllerBE != null)
+                controllerBE.removeShaft();
+            return;
+        }
+
+        if (assembled)
+            return;
+
+        shaftInstalled = false;
+        shaftPos = null;
+
+        redstonePower = 0;
+        previousRedstonePower = 0;
+        stableRedstonePower = 0;
+        redstoneChangePending = false;
+        redstoneResetRequired = false;
+
+        updateAllPartStates();
         setChanged();
         sendData();
     }

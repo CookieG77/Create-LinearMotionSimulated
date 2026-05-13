@@ -15,9 +15,9 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
 
-public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
+import static net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.link_block.PneumaticCylinderPistonHeadRenderer.HEAD_THICKNESS_BLOCKS;
 
-    private static final float HEAD_THICKNESS_BLOCKS = 3f / 16f;
+public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
 
     private BlockPos headPos;
     private int indexBehindHead;
@@ -26,8 +26,6 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
     private float extension;
     private float prevExtension;
     private float maxExtension;
-
-    // Flag to force rendering the full rod for ponders
     private boolean forceFullRender;
 
     public PneumaticCylinderRodSegmentBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
@@ -44,6 +42,10 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
 
     @Override
     public void remove() {
+        /*
+         * If a visible/collision rod segment is broken manually, the safest behavior
+         * is to destroy the head. The head will then destroy its parent cylinder.
+         */
         if (level != null && !level.isClientSide && !assembling && headPos != null) {
             if (level.getBlockState(headPos).is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_PISTON_HEAD.get()))
                 level.destroyBlock(headPos, false);
@@ -85,6 +87,16 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
         sendData();
     }
 
+    public void setForceFullRender(boolean forceFullRender) {
+        this.forceFullRender = forceFullRender;
+        setChanged();
+        sendData();
+    }
+
+    public boolean isForceFullRender() {
+        return forceFullRender;
+    }
+
     public PneumaticCylinderPistonHeadBlockEntity getHeadBE() {
         if (level == null || headPos == null)
             return null;
@@ -101,14 +113,12 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
         if (forceFullRender)
             return 1.0f;
 
-        float renderedExtension = getRenderedExtension(partialTicks);
+        PneumaticCylinderPistonHeadBlockEntity headBE = getHeadBE();
+        float renderedExtension = headBE != null
+                ? headBE.getRenderedExtension(partialTicks)
+                : getRenderedExtension(partialTicks);
 
-        float BASE_VISIBLE_ROD = 0.5f;
-        return Math.max(0, Math.min(1, renderedExtension + BASE_VISIBLE_ROD - indexBehindHead));
-    }
-
-    public float getVisualBackOffset() {
-        return HEAD_THICKNESS_BLOCKS;
+        return Math.max(0, Math.min(1, renderedExtension - (indexBehindHead - 1)));
     }
 
     @Override
@@ -120,11 +130,9 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
 
         compound.putInt("IndexBehindHead", indexBehindHead);
         compound.putBoolean("Assembling", assembling);
-
         compound.putFloat("Extension", extension);
         compound.putFloat("PrevExtension", prevExtension);
         compound.putFloat("MaxExtension", maxExtension);
-
         compound.putBoolean("ForceFullRender", forceFullRender);
     }
 
@@ -138,21 +146,13 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
 
         indexBehindHead = compound.getInt("IndexBehindHead");
         assembling = compound.getBoolean("Assembling");
-
         extension = compound.getFloat("Extension");
         prevExtension = compound.getFloat("PrevExtension");
         maxExtension = compound.getFloat("MaxExtension");
-
         forceFullRender = compound.getBoolean("ForceFullRender");
     }
 
-    public void setForceFullRender(boolean forceFullRender) {
-        this.forceFullRender = forceFullRender;
-        setChanged();
-        sendData();
-    }
-
-    public boolean isForceFullRender() {
-        return forceFullRender;
+    public float getVisualBackOffset() {
+        return HEAD_THICKNESS_BLOCKS;
     }
 }

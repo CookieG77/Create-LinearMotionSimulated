@@ -29,6 +29,14 @@ public class PartialModelRegistriesCLM {
     public static final PartialModel PNEUMATIC_CYLINDER_TOP_WO_HEAD =
             block("pneumatic_cylinder/block_top_wo_head");
 
+    public static final PartialModel PNEUMATIC_CYLINDER_SINGLE_WO_SHAFT_HOLE =
+            block("pneumatic_cylinder/block_single_wo_shaft_hole");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_SINGLE_WO_HEAD_WO_SHAFT_HOLE =
+            block("pneumatic_cylinder/block_single_wo_head_wo_shaft_hole");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_BOTTOM_WO_SHAFT_HOLE =
+            block("pneumatic_cylinder/block_bottom_wo_shaft_hole");
 
     /**
      * The separated piston head / link block.

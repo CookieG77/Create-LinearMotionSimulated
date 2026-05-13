@@ -1,7 +1,7 @@
 package net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder;
 
 import com.mojang.serialization.MapCodec;
-import com.simibubi.create.AllBlocks;
+import com.simibubi.create.AllItems;
 import com.simibubi.create.api.connectivity.ConnectivityHandler;
 import com.simibubi.create.content.equipment.wrench.IWrenchable;
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock;
@@ -31,6 +31,8 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.BlockItem;
 
 import javax.annotation.Nullable;
 
@@ -184,7 +186,7 @@ public class PneumaticCylinderBlock extends DirectionalKineticBlock implements I
     @Override
     protected @NotNull ItemInteractionResult useItemOn(@NotNull ItemStack stack,
                                                        @NotNull BlockState state,
-                                                       Level level,
+                                                       @NotNull Level level,
                                                        @NotNull BlockPos pos,
                                                        @NotNull Player player,
                                                        @NotNull InteractionHand hand,
@@ -193,7 +195,18 @@ public class PneumaticCylinderBlock extends DirectionalKineticBlock implements I
         if (stack.isEmpty())
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
 
-        if (!AllBlocks.SHAFT.isIn(stack))
+        /*
+         * Si le joueur tient un block item, on laisse Minecraft tenter le placement.
+         * Important pour pouvoir allonger le vérin avec PNEUMATIC_CYLINDER_ITEM.
+         */
+        if (stack.getItem() instanceof BlockItem)
+            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+
+        /*
+         * Le shaft n'est plus installé avec un item create:shaft.
+         * Le mode shaft est maintenant togglé uniquement avec la wrench Create.
+         */
+        if (!AllItems.WRENCH.isIn(stack))
             return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
 
         PneumaticCylinderBlockEntity be = getBlockEntity(level, pos);
@@ -204,26 +217,32 @@ public class PneumaticCylinderBlock extends DirectionalKineticBlock implements I
         if (controller == null)
             return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
 
-        // V1: automatic shaft on 1x1 cylinders. Manual shaft placement is reserved for 2x2/3x3.
-        if (controller.getWidth() <= 1)
-            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
-
-        Direction facing = controller.getFacing();
-        Direction back = facing.getOpposite();
-
-        if (hitResult.getDirection() != back)
-            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
-
-        if (!controller.isOnBackFace(pos))
-            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
-
         if (level.isClientSide)
             return ItemInteractionResult.SUCCESS;
 
-        controller.setShaftPos(pos);
+        if (controller.isAssembled()) {
+            player.displayClientMessage(
+                    Component.translatable("block.create_linear_motion_simulated.pneumatic_cylinder.shaft_toggle_assembled"),
+                    true
+            );
+            return ItemInteractionResult.CONSUME;
+        }
 
-        if (!player.isCreative())
-            stack.shrink(1);
+        if (controller.hasShaftInstalled()) {
+            controller.removeShaft();
+
+            player.displayClientMessage(
+                    Component.translatable("block.create_linear_motion_simulated.pneumatic_cylinder.shaft_removed"),
+                    true
+            );
+        } else {
+            controller.installShaft();
+
+            player.displayClientMessage(
+                    Component.translatable("block.create_linear_motion_simulated.pneumatic_cylinder.shaft_installed"),
+                    true
+            );
+        }
 
         return ItemInteractionResult.CONSUME;
     }

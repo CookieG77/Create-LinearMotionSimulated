@@ -16,7 +16,7 @@ import static net.minecraft.world.level.block.state.properties.BlockStatePropert
 
 public class PneumaticCylinderPistonHeadRenderer extends SafeBlockEntityRenderer<PneumaticCylinderPistonHeadBlockEntity> {
 
-    private static final float HEAD_THICKNESS_BLOCKS = 3f / 16f;
+    public static final float HEAD_THICKNESS_BLOCKS = 3f / 16f;
     public static final float BASE_VISIBLE_ROD = 0.75f;
 
     public PneumaticCylinderPistonHeadRenderer(BlockEntityRendererProvider.Context context) {

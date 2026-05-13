@@ -62,12 +62,16 @@ public class PneumaticCylinderScenes {
         final Vec3 catStartPos = new Vec3(2.5, 3.5, 2.5);
         final Vec2 catStartHeadPos = new Vec2( 0, 180);
 
+        final BlockPos otherPneumaticCylinder = new BlockPos(2, 1, 0);
+
         // Basic setup
         scene.title("pneumatic_cylinder", "Moving Structures using the Pneumatic Cylinder");
         scene.configureBasePlate(0, 0, 5);
         scene.showBasePlate();
         scene.setSceneOffsetY(-1f);
         world.showSection(select.position(5, 0, 2), Direction.UP);
+
+        //TODO : Display the shaft part here before the rest
 
         scene.idle(10);
         world.showSection(cogs, Direction.DOWN);

@@ -46,6 +46,9 @@ public class PneumaticCylinderRenderer extends SafeBlockEntityRenderer<Pneumatic
                                  VertexConsumer vb,
                                  int light) {
 
+        if (!controller.hasShaftInstalled())
+            return;
+
         BlockPos shaftPos = controller.getShaftPosForRendering();
         if (shaftPos == null)
             return;

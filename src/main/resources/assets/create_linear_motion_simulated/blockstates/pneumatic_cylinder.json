@@ -1,78 +1,153 @@
 {
     "multipart": [
         {
-            "when": { "part": "single", "assembled": "false", "facing": "up" },
+            "when": { "part": "single", "assembled": "false", "has_shaft": "true", "facing": "up" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single" }
         },
         {
-            "when": { "part": "single", "assembled": "false", "facing": "down" },
+            "when": { "part": "single", "assembled": "false", "has_shaft": "true", "facing": "down" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single", "x": 180 }
         },
         {
-            "when": { "part": "single", "assembled": "false", "facing": "north" },
+            "when": { "part": "single", "assembled": "false", "has_shaft": "true", "facing": "north" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single", "x": 90 }
         },
         {
-            "when": { "part": "single", "assembled": "false", "facing": "south" },
+            "when": { "part": "single", "assembled": "false", "has_shaft": "true", "facing": "south" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single", "x": 270 }
         },
         {
-            "when": { "part": "single", "assembled": "false", "facing": "east" },
+            "when": { "part": "single", "assembled": "false", "has_shaft": "true", "facing": "east" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single", "x": 90, "y": 90 }
         },
         {
-            "when": { "part": "single", "assembled": "false", "facing": "west" },
+            "when": { "part": "single", "assembled": "false", "has_shaft": "true", "facing": "west" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single", "x": 90, "y": 270 }
         },
 
         {
-            "when": { "part": "single", "assembled": "true", "facing": "up" },
+            "when": { "part": "single", "assembled": "false", "has_shaft": "false", "facing": "up" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_shaft_hole" }
+        },
+        {
+            "when": { "part": "single", "assembled": "false", "has_shaft": "false", "facing": "down" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_shaft_hole", "x": 180 }
+        },
+        {
+            "when": { "part": "single", "assembled": "false", "has_shaft": "false", "facing": "north" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_shaft_hole", "x": 90 }
+        },
+        {
+            "when": { "part": "single", "assembled": "false", "has_shaft": "false", "facing": "south" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_shaft_hole", "x": 270 }
+        },
+        {
+            "when": { "part": "single", "assembled": "false", "has_shaft": "false", "facing": "east" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_shaft_hole", "x": 90, "y": 90 }
+        },
+        {
+            "when": { "part": "single", "assembled": "false", "has_shaft": "false", "facing": "west" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_shaft_hole", "x": 90, "y": 270 }
+        },
+
+        {
+            "when": { "part": "single", "assembled": "true", "has_shaft": "true", "facing": "up" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_head" }
         },
         {
-            "when": { "part": "single", "assembled": "true", "facing": "down" },
+            "when": { "part": "single", "assembled": "true", "has_shaft": "true", "facing": "down" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_head", "x": 180 }
         },
         {
-            "when": { "part": "single", "assembled": "true", "facing": "north" },
+            "when": { "part": "single", "assembled": "true", "has_shaft": "true", "facing": "north" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_head", "x": 90 }
         },
         {
-            "when": { "part": "single", "assembled": "true", "facing": "south" },
+            "when": { "part": "single", "assembled": "true", "has_shaft": "true", "facing": "south" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_head", "x": 270 }
         },
         {
-            "when": { "part": "single", "assembled": "true", "facing": "east" },
+            "when": { "part": "single", "assembled": "true", "has_shaft": "true", "facing": "east" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_head", "x": 90, "y": 90 }
         },
         {
-            "when": { "part": "single", "assembled": "true", "facing": "west" },
+            "when": { "part": "single", "assembled": "true", "has_shaft": "true", "facing": "west" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_head", "x": 90, "y": 270 }
         },
 
         {
-            "when": { "part": "back", "facing": "up" },
+            "when": { "part": "single", "assembled": "true", "has_shaft": "false", "facing": "up" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_head_wo_shaft_hole" }
+        },
+        {
+            "when": { "part": "single", "assembled": "true", "has_shaft": "false", "facing": "down" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_head_wo_shaft_hole", "x": 180 }
+        },
+        {
+            "when": { "part": "single", "assembled": "true", "has_shaft": "false", "facing": "north" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_head_wo_shaft_hole", "x": 90 }
+        },
+        {
+            "when": { "part": "single", "assembled": "true", "has_shaft": "false", "facing": "south" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_head_wo_shaft_hole", "x": 270 }
+        },
+        {
+            "when": { "part": "single", "assembled": "true", "has_shaft": "false", "facing": "east" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_head_wo_shaft_hole", "x": 90, "y": 90 }
+        },
+        {
+            "when": { "part": "single", "assembled": "true", "has_shaft": "false", "facing": "west" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_single_wo_head_wo_shaft_hole", "x": 90, "y": 270 }
+        },
+
+        {
+            "when": { "part": "back", "has_shaft": "true", "facing": "up" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_bottom" }
         },
         {
-            "when": { "part": "back", "facing": "down" },
+            "when": { "part": "back", "has_shaft": "true", "facing": "down" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_bottom", "x": 180 }
         },
         {
-            "when": { "part": "back", "facing": "north" },
+            "when": { "part": "back", "has_shaft": "true", "facing": "north" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_bottom", "x": 90 }
         },
         {
-            "when": { "part": "back", "facing": "south" },
+            "when": { "part": "back", "has_shaft": "true", "facing": "south" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_bottom", "x": 270 }
         },
         {
-            "when": { "part": "back", "facing": "east" },
+            "when": { "part": "back", "has_shaft": "true", "facing": "east" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_bottom", "x": 90, "y": 90 }
         },
         {
-            "when": { "part": "back", "facing": "west" },
+            "when": { "part": "back", "has_shaft": "true", "facing": "west" },
             "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_bottom", "x": 90, "y": 270 }
+        },
+
+        {
+            "when": { "part": "back", "has_shaft": "false", "facing": "up" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_bottom_wo_shaft_hole" }
+        },
+        {
+            "when": { "part": "back", "has_shaft": "false", "facing": "down" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_bottom_wo_shaft_hole", "x": 180 }
+        },
+        {
+            "when": { "part": "back", "has_shaft": "false", "facing": "north" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_bottom_wo_shaft_hole", "x": 90 }
+        },
+        {
+            "when": { "part": "back", "has_shaft": "false", "facing": "south" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_bottom_wo_shaft_hole", "x": 270 }
+        },
+        {
+            "when": { "part": "back", "has_shaft": "false", "facing": "east" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_bottom_wo_shaft_hole", "x": 90, "y": 90 }
+        },
+        {
+            "when": { "part": "back", "has_shaft": "false", "facing": "west" },
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/block_bottom_wo_shaft_hole", "x": 90, "y": 270 }
         },
 
         {
