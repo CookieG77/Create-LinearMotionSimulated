@@ -369,12 +369,12 @@ public class PneumaticCylinderScenes {
             );
         }
 
-        world.setKineticSpeed(largeCogwheel, -128);
-        world.setKineticSpeed(smallCogwheelAndShaft, 256);
+        world.setKineticSpeed(largeCogwheel, -64);
+        world.setKineticSpeed(smallCogwheelAndShaft, 128);
         world.setKineticSpeed(select.fromTo(
                 pneumaticCylinder.getX(), pneumaticCylinder.getY(), pneumaticCylinder.getZ() - (pistonLength),
                 pneumaticCylinder.getX(), pneumaticCylinder.getY(), pneumaticCylinder.getZ()
-        ), 256);
+        ), 128);
 
         scene.addKeyframe();
 
@@ -399,14 +399,22 @@ public class PneumaticCylinderScenes {
             );
         }
 
-        world.moveSection(contraption, new Vec3(0, 0, -(pistonLength + 1)), 40);
+        world.moveSection(contraption, new Vec3(0, 0, -(pistonLength + 1)), 80);
 
         overlay.showText(60)
-                .text("The whole piston, including the head, will move together when the cylinder is powered")
+                .text("The whole piston, including the head, will move together when the cylinder is powered.")
                 .pointAt(new Vec3(pneumaticCylinder.getX() + 0.5, pneumaticCylinder.getY()+ 0.5, pneumaticCylinder.getZ() + 0.5 - ((double) (pistonLength + 1) / 2)))
                 .placeNearTarget();
 
-        scene.idle(80);
+        scene.idle(10);
+
+        overlay.showText(60)
+                .text("The speed of the head is capped at 2 block per seconds à 256 RPM. So at 128 RPM it will move ar 1 block per second.")
+                .pointAt(new Vec3(pneumaticCylinder.getX() + 0.5, pneumaticCylinder.getY()+ 0.5, pneumaticCylinder.getZ() + 0.5 - ((double) (pistonLength + 1) / 2)))
+                .attachKeyFrame()
+                .placeNearTarget();
+
+        scene.idle(110);
 
         scene.markAsFinished();
     }

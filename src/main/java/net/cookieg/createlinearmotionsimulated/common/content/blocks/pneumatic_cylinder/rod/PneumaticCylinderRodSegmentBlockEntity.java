@@ -2,6 +2,7 @@ package net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_
 
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
+import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.PneumaticCylinderBlockEntity;
 import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.link_block.PneumaticCylinderPistonHeadBlockEntity;
 import net.cookieg.createlinearmotionsimulated.common.registries.BlockEntityRegistriesCLM;
 import net.cookieg.createlinearmotionsimulated.common.registries.BlockRegistriesCLM;
@@ -9,6 +10,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -42,12 +44,26 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
 
     @Override
     public void remove() {
+        /*
+         * If Sable is moving this technical block, ignore the transient removal.
+         * If it is a real break, keep the old behavior: destroy the linked head.
+         */
         if (level != null && !level.isClientSide && !assembling && headPos != null) {
             if (level.getBlockState(headPos).is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_PISTON_HEAD.get()))
                 level.destroyBlock(headPos, false);
         }
 
         super.remove();
+    }
+
+    public void onMovedBySubLevel(BlockPos oldPos, BlockPos newPos) {
+        BlockPos delta = newPos.subtract(oldPos);
+
+        if (headPos != null)
+            headPos = headPos.offset(delta);
+
+        setChanged();
+        sendData();
     }
 
     public void setHead(BlockPos headPos) {
@@ -153,5 +169,16 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
         extension = compound.getFloat("Extension");
         prevExtension = compound.getFloat("PrevExtension");
         maxExtension = compound.getFloat("MaxExtension");
+    }
+
+    public void beforeAssembly() {
+        this.assembling = true;
+        setChanged();
+    }
+
+    public void afterMovedBySubLevel() {
+        this.assembling = false;
+        setChanged();
+        sendData();
     }
 }

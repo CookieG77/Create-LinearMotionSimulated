@@ -33,6 +33,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Rotation;
@@ -49,6 +50,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.link_block.PneumaticCylinderPistonHeadRenderer.BASE_VISIBLE_ROD;
 
@@ -56,6 +58,8 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
     private static final int MAX_WIDTH = 1;
     private static final int MAX_LENGTH = 16;
+
+    private static final Set<String> RECENT_SUBLEVEL_MOVES = ConcurrentHashMap.newKeySet();
 
     protected BlockPos controller;
     protected BlockPos lastKnownPos;
@@ -72,6 +76,30 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
     @Nullable
     protected AssemblyException lastAssemblyException;
+    /**
+     * True while Sable is moving this block into/out of a sublevel.
+     * Same purpose as SwivelBearingBlockEntity#assembling.
+     */
+    protected boolean assembling;
+    /**
+     * Delayed rebuild after Sable moved this cylinder block.
+     * We wait a few ticks because all blocks / sublevels may not be fully relinked
+     * in the same tick as afterMove(...).
+     */
+    protected int subLevelMoveRebuildDelay;
+
+    /**
+     * Saved mobile head data while Create connectivity is being rebuilt.
+     * Only useful for the block that still knows about the attached head.
+     */
+    @Nullable
+    protected BlockPos pendingMovedHeadPos;
+
+    @Nullable
+    protected UUID pendingMovedHeadSubLevelId;
+
+    protected boolean pendingMovedAssembled;
+    protected float pendingMovedExtension;
 
     @Nullable
     protected GenericConstraintHandle pistonConstraint;
@@ -133,13 +161,28 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             if (updateConnectivity)
                 updateConnectivity();
 
+            if (subLevelMoveRebuildDelay > 0) {
+                subLevelMoveRebuildDelay--;
+
+                if (subLevelMoveRebuildDelay == 0)
+                    rebuildAfterSubLevelMove();
+            }
+
             if (isController())
                 tickControllerServer();
         }
     }
 
     private void onPositionChanged() {
-        if (assembled || Sable.HELPER.getContaining(this) != null) {
+        /*
+         * Do not reset Create connectivity while Sable is moving the block.
+         * Do not translate controller/head positions here either: during Sable plot moves,
+         * old/new positions may not be a simple world-space translation.
+         *
+         * Swivel Bearing does not repair links from onPositionChanged; it uses
+         * beforeMove/afterMove instead.
+         */
+        if (assembling || assembled || Sable.HELPER.getContaining(this) != null) {
             lastKnownPos = worldPosition;
             setChanged();
             sendData();
@@ -979,11 +1022,17 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
     @Override
     public @Nullable Iterable<@NotNull SubLevel> sable$getConnectionDependencies() {
-        SubLevel attached = getAttachedHeadSubLevel();
-        if (attached == null)
-            return null;
-
-        return List.of(attached);
+        /*
+         * Important:
+         * The cylinder body/controller must NOT declare the piston head sublevel as
+         * a connection dependency.
+         *
+         * Swivel Bearing does it the other way around:
+         * the moving link/plate depends on its parent, not the parent on the moving
+         * link. If the controller depends on the head, Sable can keep the head
+         * sublevel anchored when the body is assembled into another sublevel.
+         */
+        return null;
     }
 
     public BlockPos getFrontBlockPos() {
@@ -1194,6 +1243,12 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
         destroyAttachedHeadConstraint();
         createAttachedHeadConstraint(headSubLevel, pistonHeadPos != null ? pistonHeadPos : getFrontBlockPos());
+        updateAttachedHeadConstraint(extension);
+
+        rebuildConstraintOnLoad = false;
+
+        setChanged();
+        sendData();
     }
 
     private void destroyAttachedHeadConstraint() {
@@ -1205,6 +1260,37 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         }
 
         rebuildConstraintOnLoad = false;
+    }
+
+    public void onPistonHeadBroken() {
+        if (level == null || level.isClientSide)
+            return;
+
+        if (!isController()) {
+            PneumaticCylinderBlockEntity controllerBE = getControllerBE();
+            if (controllerBE != null)
+                controllerBE.onPistonHeadBroken();
+            return;
+        }
+
+        destroyAttachedHeadConstraint();
+        destroyRodSegments();
+
+        pistonHeadPos = null;
+        pistonHeadSubLevelId = null;
+        assembled = false;
+        extension = 0;
+        prevExtension = 0;
+        targetExtension = 0;
+        assembleRequested = false;
+        disassembleRequested = false;
+
+        redstoneResetRequired = computeRedstonePower() > 0;
+
+        updateAllPartStates();
+
+        setChanged();
+        sendData();
     }
 
     public void destroyMovingPartFromCylinderBreak() {
@@ -1311,5 +1397,221 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
          *   setChanged();
          *   sendData();
          */
+    }
+
+    public void beforeAssembly() {
+        this.assembling = true;
+
+        /*
+         * Critical:
+         * If this block is not the controller, forward the move notification to the
+         * controller while the old multiblock links still exist.
+         *
+         * Sable may call beforeMove(...) on any cylinder part. If the old controller
+         * keeps its constraint alive while the body is being assembled into another
+         * sublevel, the piston head sublevel can remain anchored at the old world
+         * position.
+         */
+        PneumaticCylinderBlockEntity controllerBE = getControllerBE();
+
+        if (controllerBE != null && controllerBE != this) {
+            controllerBE.beforeControllerSubLevelMove();
+        } else {
+            beforeControllerSubLevelMove();
+        }
+
+        setChanged();
+    }
+
+    public boolean isAssemblingForSubLevelMove() {
+        return assembling;
+    }
+
+    public void afterMovedBySubLevel() {
+        /*
+         * Sable finished moving this block. Do not immediately reattach the
+         * constraint here: the other blocks and the head sublevel may still be
+         * finishing their move during this same tick.
+         */
+        this.assembling = false;
+        this.lastKnownPos = worldPosition;
+
+        /*
+         * Do not overwrite pendingMovedHeadPos here.
+         * It was captured in beforeControllerSubLevelMove(), while the old
+         * controller/head links were still reliable.
+         */
+
+        /*
+         * After Sable moves blocks, absolute controller references can be stale.
+         * Do NOT call removeController(), because that wipes the piston state.
+         */
+        this.controller = null;
+        this.width = 1;
+        this.height = 1;
+
+        this.updateConnectivity = true;
+        this.subLevelMoveRebuildDelay = 3;
+
+        setChanged();
+        sendData();
+    }
+
+    public void associateHeadWithParent() {
+        if (level == null || level.isClientSide)
+            return;
+
+        if (!isController()) {
+            PneumaticCylinderBlockEntity controllerBE = getControllerBE();
+            if (controllerBE != null)
+                controllerBE.associateHeadWithParent();
+            return;
+        }
+
+        if (pistonHeadPos == null)
+            return;
+
+        BlockEntity be = level.getBlockEntity(pistonHeadPos);
+        if (be instanceof PneumaticCylinderPistonHeadBlockEntity headBE) {
+            /*
+             * Rewrites parent + parentSubLevelId from the current controller.
+             * After the body is assembled into a sublevel, Sable.HELPER.getContaining(this)
+             * should now point to the new body sublevel.
+             */
+            headBE.setParent(this);
+        }
+    }
+
+    public void setPistonHeadActor(@Nullable BlockPos headPos, @Nullable UUID headSubLevelId) {
+        if (level != null && level.isClientSide)
+            return;
+
+        if (!isController()) {
+            PneumaticCylinderBlockEntity controllerBE = getControllerBE();
+            if (controllerBE != null)
+                controllerBE.setPistonHeadActor(headPos, headSubLevelId);
+            return;
+        }
+
+        this.pistonHeadPos = headPos;
+        this.pistonHeadSubLevelId = headSubLevelId;
+        this.assembled = headPos != null && headSubLevelId != null;
+
+        /*
+         * The head was moved/relinked, so the old constraint must not be trusted.
+         */
+        destroyAttachedHeadConstraint();
+
+        if (!this.assembled) {
+            destroyRodSegments();
+
+            extension = 0;
+            prevExtension = 0;
+            targetExtension = 0;
+            assembleRequested = false;
+            disassembleRequested = false;
+        } else {
+            rebuildConstraintOnLoad = true;
+            rebuildAttachedHeadConstraint();
+            updateAttachedHeadConstraint(extension);
+            syncHeadActorData();
+            syncRodSegments();
+        }
+
+        updateAllPartStates();
+
+        setChanged();
+        sendData();
+    }
+
+    private void rebuildAfterSubLevelMove() {
+        if (level == null || level.isClientSide)
+            return;
+
+        /*
+         * Rebuild the static Create multiblock.
+         */
+        ConnectivityHandler.formMulti(this);
+
+        PneumaticCylinderBlockEntity controllerBE = getControllerBE();
+        if (controllerBE == null)
+            controllerBE = this;
+
+        /*
+         * If any moved part still has the saved head state, transfer it to the
+         * rebuilt controller. This is needed because ConnectivityHandler may choose
+         * or reconfirm a controller after the move.
+         */
+        if (pendingMovedAssembled && pendingMovedHeadPos != null && pendingMovedHeadSubLevelId != null) {
+            controllerBE.pistonHeadPos = pendingMovedHeadPos;
+            controllerBE.pistonHeadSubLevelId = pendingMovedHeadSubLevelId;
+            controllerBE.assembled = true;
+            controllerBE.extension = pendingMovedExtension;
+            controllerBE.prevExtension = pendingMovedExtension;
+            controllerBE.targetExtension = pendingMovedExtension;
+            controllerBE.rebuildConstraintOnLoad = true;
+        }
+
+        pendingMovedHeadPos = null;
+        pendingMovedHeadSubLevelId = null;
+        pendingMovedAssembled = false;
+        pendingMovedExtension = 0;
+
+        if (controllerBE.isController()) {
+            controllerBE.updateAllPartStates();
+
+            /*
+             * Refresh the head's parentSubLevelId now that the body is inside its
+             * new containing sublevel.
+             */
+            controllerBE.associateHeadWithParent();
+
+            /*
+             * Force a new constraint. The old one was intentionally removed before
+             * the move, so this one should bind:
+             *   new body sublevel -> existing piston head sublevel
+             */
+            controllerBE.destroyAttachedHeadConstraint();
+            controllerBE.rebuildAttachedHeadConstraint();
+            controllerBE.updateAttachedHeadConstraint(controllerBE.extension);
+
+            controllerBE.syncHeadActorData();
+            controllerBE.syncRodSegments();
+
+            controllerBE.setChanged();
+            controllerBE.sendData();
+        }
+
+        setChanged();
+        sendData();
+    }
+
+    private void beforeControllerSubLevelMove() {
+        this.assembling = true;
+
+        /*
+         * Save the mobile head state before Sable starts moving the body.
+         * afterMovedBySubLevel()/rebuildAfterSubLevelMove() will restore this on the
+         * rebuilt controller.
+         */
+        this.pendingMovedHeadPos = this.pistonHeadPos;
+        this.pendingMovedHeadSubLevelId = this.pistonHeadSubLevelId;
+        this.pendingMovedAssembled = this.assembled;
+        this.pendingMovedExtension = this.extension;
+
+        /*
+         * This is the important part.
+         *
+         * The old constraint may still be valid but bound to the old containing
+         * sublevel, or to the world/null body if the cylinder body was not already
+         * in a sublevel. Keeping it alive during Sable's move can pin the piston
+         * head sublevel in place.
+         */
+        destroyAttachedHeadConstraint();
+
+        rebuildConstraintOnLoad = true;
+
+        setChanged();
+        sendData();
     }
 }

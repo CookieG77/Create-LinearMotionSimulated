@@ -52,7 +52,29 @@ public class PneumaticCylinderPistonHeadBlock extends DirectionalBlock implement
     }
 
     @Override
-    public void afterMove(ServerLevel originLevel, ServerLevel resultingLevel, BlockState newState, BlockPos oldPos, BlockPos newPos) {
+    public void beforeMove(ServerLevel originLevel,
+                           ServerLevel resultingLevel,
+                           BlockState newState,
+                           BlockPos oldPos,
+                           BlockPos newPos) {
+        withBlockEntityDo(originLevel, oldPos, PneumaticCylinderPistonHeadBlockEntity::beforeAssembly);
+    }
+
+    @Override
+    public void afterMove(ServerLevel originLevel,
+                          ServerLevel resultingLevel,
+                          BlockState newState,
+                          BlockPos oldPos,
+                          BlockPos newPos) {
+        withBlockEntityDo(resultingLevel, newPos, PneumaticCylinderPistonHeadBlockEntity::fixParentLinkingWhenMoved);
+    }
+
+    @Override
+    public BlockState playerWillDestroy(Level level, @NotNull BlockPos pos, @NotNull BlockState state, @NotNull Player player) {
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof PneumaticCylinderPistonHeadBlockEntity headBE)
+            headBE.notifyPneumaticParentHeadBroken(level);
+
+        return super.playerWillDestroy(level, pos, state, player);
     }
 
     @Override
@@ -175,4 +197,6 @@ public class PneumaticCylinderPistonHeadBlock extends DirectionalBlock implement
         controller.requestToggleAssembly();
         return InteractionResult.CONSUME;
     }
+
+
 }

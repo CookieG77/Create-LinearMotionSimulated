@@ -4,6 +4,7 @@ import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.api.block.BlockEntitySubLevelActor;
+import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
 import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.PneumaticCylinderBlockEntity;
 import net.cookieg.createlinearmotionsimulated.common.registries.BlockEntityRegistriesCLM;
@@ -12,6 +13,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -43,23 +45,41 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
 
     @Override
     public void remove() {
+        /*
+         * Same behavior as SwivelBearingPlateBlockEntity:
+         * if Sable is moving this BE, do not treat removal as a real break.
+         */
         if (level != null && !level.isClientSide && !assembling)
             destroyPneumaticParent();
+
         super.remove();
     }
 
-    private void destroyPneumaticParent() {
-        if (parent == null || level == null)
+    public void notifyPneumaticParentHeadBroken(Level currentLevel) {
+        if (parent == null || currentLevel == null)
             return;
 
-        BlockEntity be = level.getBlockEntity(parent);
+        BlockEntity be = currentLevel.getBlockEntity(parent);
         if (be instanceof PneumaticCylinderBlockEntity cylinder) {
             PneumaticCylinderBlockEntity controller = cylinder.getControllerBE();
             if (controller != null)
-                level.destroyBlock(controller.getBlockPos(), false);
-            else if (level.getBlockState(parent).is(BlockRegistriesCLM.PNEUMATIC_CYLINDER.get()))
-                level.destroyBlock(parent, false);
+                controller.onPistonHeadBroken();
         }
+    }
+
+    public void beforeAssembly() {
+        this.assembling = true;
+        setChanged();
+    }
+
+    public void onMovedBySubLevel(BlockPos oldPos, BlockPos newPos) {
+        BlockPos delta = newPos.subtract(oldPos);
+
+        if (parent != null)
+            parent = parent.offset(delta);
+
+        setChanged();
+        sendData();
     }
 
     public void setParent(final PneumaticCylinderBlockEntity be) {
@@ -151,5 +171,67 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
 
     public float getMaxExtension() {
         return maxExtension;
+    }
+
+    public void fixParentLinkingWhenMoved() {
+        if (level == null || level.isClientSide || parent == null)
+            return;
+
+        BlockEntity be = level.getBlockEntity(parent);
+        if (be instanceof PneumaticCylinderBlockEntity cylinder) {
+            PneumaticCylinderBlockEntity controller = cylinder.getControllerBE();
+            if (controller != null) {
+                /*
+                 * Refresh parentSubLevelId first.
+                 */
+                setParent(controller);
+
+                SubLevel containing = Sable.HELPER.getContaining(this);
+                controller.setPistonHeadActor(
+                        getBlockPos(),
+                        containing != null ? containing.getUniqueId() : null
+                );
+                controller.associateHeadWithParent();
+            }
+        }
+
+        this.assembling = false;
+        setChanged();
+        sendData();
+    }
+
+    private void destroyPneumaticParent() {
+        if (level == null || level.isClientSide || parent == null)
+            return;
+
+        BlockEntity be = level.getBlockEntity(parent);
+        if (!(be instanceof PneumaticCylinderBlockEntity cylinder))
+            return;
+
+        PneumaticCylinderBlockEntity controller = cylinder.getControllerBE();
+        if (controller == null)
+            return;
+
+        /*
+         * Contrairement à l'ancien comportement, casser la tête ne détruit plus
+         * le controller. On repasse seulement le vérin en état désassemblé.
+         */
+        controller.onPistonHeadBroken();
+    }
+
+    @Override
+    public @org.jetbrains.annotations.Nullable Iterable<@org.jetbrains.annotations.NotNull SubLevel> sable$getConnectionDependencies() {
+        if (level == null || parentSubLevelId == null)
+            return null;
+
+        SubLevelContainer container = SubLevelContainer.getContainer(level);
+        if (container == null)
+            return null;
+
+        SubLevel parentSubLevel = container.getSubLevel(parentSubLevelId);
+        if (parentSubLevel == null)
+            return null;
+
+        return List.of(parentSubLevel);
     }
 }

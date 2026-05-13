@@ -2,10 +2,14 @@ package net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_
 
 import com.mojang.serialization.MapCodec;
 import com.simibubi.create.foundation.block.IBE;
+import dev.ryanhcode.sable.api.block.BlockSubLevelAssemblyListener;
 import net.cookieg.createlinearmotionsimulated.common.registries.BlockEntityRegistriesCLM;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.DirectionalBlock;
@@ -18,7 +22,7 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
 
-public class PneumaticCylinderRodSegmentBlock extends DirectionalBlock implements IBE<PneumaticCylinderRodSegmentBlockEntity> {
+public class PneumaticCylinderRodSegmentBlock extends DirectionalBlock implements IBE<PneumaticCylinderRodSegmentBlockEntity>, BlockSubLevelAssemblyListener {
 
     public static final MapCodec<PneumaticCylinderRodSegmentBlock> CODEC =
             simpleCodec(PneumaticCylinderRodSegmentBlock::new);
@@ -118,6 +122,36 @@ public class PneumaticCylinderRodSegmentBlock extends DirectionalBlock implement
         return Block.box(minX, minY, minZ, maxX, maxY, maxZ);
     }
 
+
+    @Override
+    public void beforeMove(ServerLevel originLevel,
+                           ServerLevel resultingLevel,
+                           BlockState newState,
+                           BlockPos oldPos,
+                           BlockPos newPos) {
+        withBlockEntityDo(originLevel, oldPos, PneumaticCylinderRodSegmentBlockEntity::beforeAssembly);
+    }
+
+    @Override
+    public void afterMove(ServerLevel originLevel,
+                          ServerLevel resultingLevel,
+                          BlockState newState,
+                          BlockPos oldPos,
+                          BlockPos newPos) {
+        withBlockEntityDo(resultingLevel, newPos, PneumaticCylinderRodSegmentBlockEntity::afterMovedBySubLevel);
+    }
+
+    @Override
+    public BlockState playerWillDestroy(Level level, @NotNull BlockPos pos, @NotNull BlockState state, @NotNull Player player) {
+        if (!level.isClientSide && level.getBlockEntity(pos) instanceof PneumaticCylinderRodSegmentBlockEntity segmentBE) {
+            BlockPos linkedHeadPos = segmentBE.getHeadPos();
+            if (linkedHeadPos != null && level.getBlockState(linkedHeadPos).is(net.cookieg.createlinearmotionsimulated.common.registries.BlockRegistriesCLM.PNEUMATIC_CYLINDER_PISTON_HEAD.get()))
+                level.destroyBlock(linkedHeadPos, false);
+        }
+
+        return super.playerWillDestroy(level, pos, state, player);
+    }
+
     @Override
     public Class<PneumaticCylinderRodSegmentBlockEntity> getBlockEntityClass() {
         return PneumaticCylinderRodSegmentBlockEntity.class;
@@ -127,4 +161,6 @@ public class PneumaticCylinderRodSegmentBlock extends DirectionalBlock implement
     public BlockEntityType<? extends PneumaticCylinderRodSegmentBlockEntity> getBlockEntityType() {
         return BlockEntityRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get();
     }
+
+
 }

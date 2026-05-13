@@ -2,27 +2,27 @@
     "multipart": [
         {
             "when": { "facing": "up" },
-            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/link_block/block" }
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/link_block/head" }
         },
         {
             "when": { "facing": "down" },
-            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/link_block/block", "x": 180 }
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/link_block/head", "x": 180 }
         },
         {
             "when": { "facing": "north" },
-            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/link_block/block", "x": 90 }
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/link_block/head", "x": 90 }
         },
         {
             "when": { "facing": "south" },
-            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/link_block/block", "x": 270 }
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/link_block/head", "x": 270 }
         },
         {
             "when": { "facing": "east" },
-            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/link_block/block", "x": 90, "y": 90 }
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/link_block/head", "x": 90, "y": 90 }
         },
         {
             "when": { "facing": "west" },
-            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/link_block/block", "x": 90, "y": 270 }
+            "apply": { "model": "create_linear_motion_simulated:block/pneumatic_cylinder/link_block/head", "x": 90, "y": 270 }
         }
     ]
 }
