@@ -177,6 +177,12 @@ public class PneumaticCylinderScenes {
 
         effects.indicateRedstone(lever);
 
+        world.modifyBlock(
+                new BlockPos(pneumaticCylinder.getX(), pneumaticCylinder.getY(), pneumaticCylinder.getZ()),
+                blockState -> blockState.setValue(PneumaticCylinderBlock.POWERED, true),
+                false
+        );
+
         final int duration = 40;
         final Vec3 movement = new Vec3(0, 1, 0);
         final Vec2 targetCatHeadPos = new Vec2(-35, 145);
@@ -318,7 +324,8 @@ public class PneumaticCylinderScenes {
                     select.position(pneumaticCylinder.getX(), pneumaticCylinder.getY(), pneumaticCylinder.getZ() - i - 1),
                     BlockRegistriesCLM.PNEUMATIC_CYLINDER.get()
                             .defaultBlockState()
-                            .setValue(PneumaticCylinderBlock.FACING, Direction.NORTH),
+                            .setValue(PneumaticCylinderBlock.FACING, Direction.NORTH)
+                            .setValue(PneumaticCylinderBlock.HAS_SHAFT, true),
                     false
             );
 
@@ -382,6 +389,15 @@ public class PneumaticCylinderScenes {
                 pneumaticCylinder.getX(), pneumaticCylinder.getY(), pneumaticCylinder.getZ()
         ).add(select.position(lever)));
         effects.indicateRedstone(lever);
+
+        // Power the pneumatic cylinder
+        for (int i = 0; i < pistonLength+1; i++) {
+            world.modifyBlock(
+                    new BlockPos(pneumaticCylinder.getX(), pneumaticCylinder.getY(), pneumaticCylinder.getZ() - i),
+                    blockState -> blockState.setValue(PneumaticCylinderBlock.POWERED, true),
+                    false
+            );
+        }
 
         world.moveSection(contraption, new Vec3(0, 0, -(pistonLength + 1)), 40);
 

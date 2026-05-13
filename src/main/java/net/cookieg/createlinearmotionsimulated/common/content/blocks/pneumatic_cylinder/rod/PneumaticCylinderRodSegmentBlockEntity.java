@@ -15,18 +15,18 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
 
-import static net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.link_block.PneumaticCylinderPistonHeadRenderer.HEAD_THICKNESS_BLOCKS;
+import static net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.link_block.PneumaticCylinderPistonHeadRenderer.BASE_VISIBLE_ROD;
 
 public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
 
     private BlockPos headPos;
     private int indexBehindHead;
     private boolean assembling;
+    private boolean forceFullRender;
 
     private float extension;
     private float prevExtension;
     private float maxExtension;
-    private boolean forceFullRender;
 
     public PneumaticCylinderRodSegmentBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
@@ -42,10 +42,6 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
 
     @Override
     public void remove() {
-        /*
-         * If a visible/collision rod segment is broken manually, the safest behavior
-         * is to destroy the head. The head will then destroy its parent cylinder.
-         */
         if (level != null && !level.isClientSide && !assembling && headPos != null) {
             if (level.getBlockState(headPos).is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_PISTON_HEAD.get()))
                 level.destroyBlock(headPos, false);
@@ -79,14 +75,6 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
         setChanged();
     }
 
-    public void setExtensionData(float extension, float prevExtension, float maxExtension) {
-        this.extension = extension;
-        this.prevExtension = prevExtension;
-        this.maxExtension = maxExtension;
-        setChanged();
-        sendData();
-    }
-
     public void setForceFullRender(boolean forceFullRender) {
         this.forceFullRender = forceFullRender;
         setChanged();
@@ -95,6 +83,15 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
 
     public boolean isForceFullRender() {
         return forceFullRender;
+    }
+
+    public void setExtensionData(float extension, float prevExtension, float maxExtension) {
+        this.extension = Math.max(0, Math.min(maxExtension, extension));
+        this.prevExtension = Math.max(0, Math.min(maxExtension, prevExtension));
+        this.maxExtension = Math.max(0, maxExtension);
+
+        setChanged();
+        sendData();
     }
 
     public PneumaticCylinderPistonHeadBlockEntity getHeadBE() {
@@ -113,12 +110,16 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
         if (forceFullRender)
             return 1.0f;
 
-        PneumaticCylinderPistonHeadBlockEntity headBE = getHeadBE();
-        float renderedExtension = headBE != null
-                ? headBE.getRenderedExtension(partialTicks)
-                : getRenderedExtension(partialTicks);
+        float renderedExtension = getRenderedExtension(partialTicks);
 
-        return Math.max(0, Math.min(1, renderedExtension - (indexBehindHead - 1)));
+        /*
+         * La tête affiche déjà BASE_VISIBLE_ROD.
+         * Le segment 1 commence à apparaître quand la longueur visible dépasse
+         * un block complet derrière la tête.
+         */
+        float visibleBehindHead = renderedExtension + BASE_VISIBLE_ROD;
+
+        return Math.max(0, Math.min(1, visibleBehindHead - indexBehindHead));
     }
 
     @Override
@@ -130,10 +131,11 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
 
         compound.putInt("IndexBehindHead", indexBehindHead);
         compound.putBoolean("Assembling", assembling);
+        compound.putBoolean("ForceFullRender", forceFullRender);
+
         compound.putFloat("Extension", extension);
         compound.putFloat("PrevExtension", prevExtension);
         compound.putFloat("MaxExtension", maxExtension);
-        compound.putBoolean("ForceFullRender", forceFullRender);
     }
 
     @Override
@@ -146,13 +148,10 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
 
         indexBehindHead = compound.getInt("IndexBehindHead");
         assembling = compound.getBoolean("Assembling");
+        forceFullRender = compound.getBoolean("ForceFullRender");
+
         extension = compound.getFloat("Extension");
         prevExtension = compound.getFloat("PrevExtension");
         maxExtension = compound.getFloat("MaxExtension");
-        forceFullRender = compound.getBoolean("ForceFullRender");
-    }
-
-    public float getVisualBackOffset() {
-        return HEAD_THICKNESS_BLOCKS;
     }
 }

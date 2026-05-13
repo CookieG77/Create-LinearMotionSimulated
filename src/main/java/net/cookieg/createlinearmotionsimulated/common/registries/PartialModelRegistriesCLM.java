@@ -11,6 +11,10 @@ import net.cookieg.createlinearmotionsimulated.common.CreateLinearMotionSimulate
  */
 public class PartialModelRegistriesCLM {
 
+    /*
+     * Root/default body models.
+     * These are also the no-shaft visual variant when HAS_SHAFT is false.
+     */
     public static final PartialModel PNEUMATIC_CYLINDER_SINGLE =
             block("pneumatic_cylinder/block_single");
 
@@ -37,6 +41,60 @@ public class PartialModelRegistriesCLM {
 
     public static final PartialModel PNEUMATIC_CYLINDER_BOTTOM_WO_SHAFT_HOLE =
             block("pneumatic_cylinder/block_bottom_wo_shaft_hole");
+
+    /*
+     * Unpowered shaft-driven body models.
+     */
+    public static final PartialModel PNEUMATIC_CYLINDER_SINGLE_UNPOWERED =
+            block("pneumatic_cylinder/unpowered/block_single_unpowered");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_SINGLE_WO_HEAD_UNPOWERED =
+            block("pneumatic_cylinder/unpowered/block_single_wo_head_unpowered");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_SINGLE_WO_SHAFT_HOLE_UNPOWERED =
+            block("pneumatic_cylinder/unpowered/block_single_wo_shaft_hole_unpowered");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_SINGLE_WO_HEAD_WO_SHAFT_HOLE_UNPOWERED =
+            block("pneumatic_cylinder/unpowered/block_single_wo_head_wo_shaft_hole_unpowered");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_BOTTOM_UNPOWERED =
+            block("pneumatic_cylinder/unpowered/block_bottom_unpowered");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_BOTTOM_WO_SHAFT_HOLE_UNPOWERED =
+            block("pneumatic_cylinder/unpowered/block_bottom_wo_shaft_hole_unpowered");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_TOP_UNPOWERED =
+            block("pneumatic_cylinder/unpowered/block_top_unpowered");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_TOP_WO_HEAD_UNPOWERED =
+            block("pneumatic_cylinder/unpowered/block_top_wo_head_unpowered");
+
+    /*
+     * Powered shaft-driven body models.
+     */
+    public static final PartialModel PNEUMATIC_CYLINDER_SINGLE_POWERED =
+            block("pneumatic_cylinder/powered/block_single_powered");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_SINGLE_WO_HEAD_POWERED =
+            block("pneumatic_cylinder/powered/block_single_wo_head_powered");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_SINGLE_WO_SHAFT_HOLE_POWERED =
+            block("pneumatic_cylinder/powered/block_single_wo_shaft_hole_powered");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_SINGLE_WO_HEAD_WO_SHAFT_HOLE_POWERED =
+            block("pneumatic_cylinder/powered/block_single_wo_head_wo_shaft_hole_powered");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_BOTTOM_POWERED =
+            block("pneumatic_cylinder/powered/block_bottom_powered");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_BOTTOM_WO_SHAFT_HOLE_POWERED =
+            block("pneumatic_cylinder/powered/block_bottom_wo_shaft_hole_powered");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_TOP_POWERED =
+            block("pneumatic_cylinder/powered/block_top_powered");
+
+    public static final PartialModel PNEUMATIC_CYLINDER_TOP_WO_HEAD_POWERED =
+            block("pneumatic_cylinder/powered/block_top_wo_head_powered");
 
     /**
      * The separated piston head / link block.

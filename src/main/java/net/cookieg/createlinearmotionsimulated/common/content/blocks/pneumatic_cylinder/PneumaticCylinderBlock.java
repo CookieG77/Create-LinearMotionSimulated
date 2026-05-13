@@ -1,7 +1,7 @@
 package net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder;
 
 import com.mojang.serialization.MapCodec;
-import com.simibubi.create.AllItems;
+import com.simibubi.create.AllBlocks;
 import com.simibubi.create.api.connectivity.ConnectivityHandler;
 import com.simibubi.create.content.equipment.wrench.IWrenchable;
 import com.simibubi.create.content.kinetics.base.DirectionalKineticBlock;
@@ -43,6 +43,7 @@ public class PneumaticCylinderBlock extends DirectionalKineticBlock implements I
     public static final BooleanProperty ASSEMBLED = BooleanProperty.create("assembled");
     public static final EnumProperty<CylinderPart> PART = EnumProperty.create("part", CylinderPart.class);
     public static final BooleanProperty HAS_SHAFT = BooleanProperty.create("has_shaft");
+    public static final BooleanProperty POWERED = BooleanProperty.create("powered");
 
     public PneumaticCylinderBlock(Properties properties) {
         super(properties);
@@ -50,7 +51,8 @@ public class PneumaticCylinderBlock extends DirectionalKineticBlock implements I
                 .setValue(FACING, Direction.NORTH)
                 .setValue(ASSEMBLED, false)
                 .setValue(PART, CylinderPart.SINGLE)
-                .setValue(HAS_SHAFT, false));
+                .setValue(HAS_SHAFT, true)
+                .setValue(POWERED, false));
     }
 
     @Override
@@ -60,7 +62,7 @@ public class PneumaticCylinderBlock extends DirectionalKineticBlock implements I
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, ASSEMBLED, PART, HAS_SHAFT);
+        builder.add(FACING, ASSEMBLED, PART, HAS_SHAFT, POWERED);
     }
 
     @Override
@@ -71,7 +73,8 @@ public class PneumaticCylinderBlock extends DirectionalKineticBlock implements I
                 .setValue(FACING, facing)
                 .setValue(ASSEMBLED, false)
                 .setValue(PART, CylinderPart.SINGLE)
-                .setValue(HAS_SHAFT, false);
+                .setValue(HAS_SHAFT, true)
+                .setValue(POWERED, false);
     }
 
     private Direction getPlacementFacing(BlockPlaceContext context) {
@@ -196,55 +199,58 @@ public class PneumaticCylinderBlock extends DirectionalKineticBlock implements I
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
 
         /*
-         * Si le joueur tient un block item, on laisse Minecraft tenter le placement.
-         * Important pour pouvoir allonger le vérin avec PNEUMATIC_CYLINDER_ITEM.
+         * If the player is holding a block item, do not trigger cylinder logic.
+         * This keeps normal placement working when extending the multiblock with
+         * another Pneumatic Cylinder block.
          */
         if (stack.getItem() instanceof BlockItem)
             return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
 
         /*
-         * Le shaft n'est plus installé avec un item create:shaft.
-         * Le mode shaft est maintenant togglé uniquement avec la wrench Create.
+         * Shaft mode switching is intentionally disabled for now.
+         *
+         * The cylinder is currently always shaft-driven. Keep this block here so
+         * the old wrench toggle can be restored once Sable exposes proper limited
+         * prismatic constraints for the free-sliding mode.
          */
-        if (!AllItems.WRENCH.isIn(stack))
-            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+//        if (AllItems.WRENCH.isIn(stack)) {
+//            PneumaticCylinderBlockEntity be = getBlockEntity(level, pos);
+//            if (be == null)
+//                return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+//
+//            PneumaticCylinderBlockEntity controller = be.getControllerBE();
+//            if (controller == null)
+//                return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+//
+//            if (level.isClientSide)
+//                return ItemInteractionResult.SUCCESS;
+//
+//            if (controller.isAssembled()) {
+//                player.displayClientMessage(
+//                        Component.translatable("block.create_linear_motion_simulated.pneumatic_cylinder.shaft_toggle_assembled"),
+//                        true
+//                );
+//                return ItemInteractionResult.CONSUME;
+//            }
+//
+//            if (controller.hasShaftInstalled()) {
+//                controller.removeShaft();
+//                player.displayClientMessage(
+//                        Component.translatable("block.create_linear_motion_simulated.pneumatic_cylinder.shaft_removed"),
+//                        true
+//                );
+//            } else {
+//                controller.installShaft();
+//                player.displayClientMessage(
+//                        Component.translatable("block.create_linear_motion_simulated.pneumatic_cylinder.shaft_installed"),
+//                        true
+//                );
+//            }
+//
+//            return ItemInteractionResult.CONSUME;
+//        }
 
-        PneumaticCylinderBlockEntity be = getBlockEntity(level, pos);
-        if (be == null)
-            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
-
-        PneumaticCylinderBlockEntity controller = be.getControllerBE();
-        if (controller == null)
-            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
-
-        if (level.isClientSide)
-            return ItemInteractionResult.SUCCESS;
-
-        if (controller.isAssembled()) {
-            player.displayClientMessage(
-                    Component.translatable("block.create_linear_motion_simulated.pneumatic_cylinder.shaft_toggle_assembled"),
-                    true
-            );
-            return ItemInteractionResult.CONSUME;
-        }
-
-        if (controller.hasShaftInstalled()) {
-            controller.removeShaft();
-
-            player.displayClientMessage(
-                    Component.translatable("block.create_linear_motion_simulated.pneumatic_cylinder.shaft_removed"),
-                    true
-            );
-        } else {
-            controller.installShaft();
-
-            player.displayClientMessage(
-                    Component.translatable("block.create_linear_motion_simulated.pneumatic_cylinder.shaft_installed"),
-                    true
-            );
-        }
-
-        return ItemInteractionResult.CONSUME;
+        return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
     }
 
     @Override

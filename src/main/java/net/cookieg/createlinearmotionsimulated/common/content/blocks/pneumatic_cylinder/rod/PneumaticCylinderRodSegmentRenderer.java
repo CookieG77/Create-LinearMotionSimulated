@@ -35,22 +35,14 @@ public class PneumaticCylinderRodSegmentRenderer extends SafeBlockEntityRenderer
         Direction facing = state.getValue(FACING);
         VertexConsumer vb = bufferSource.getBuffer(RenderType.cutoutMipped());
 
-        float backOffset = be.getVisualBackOffset();
-
-        ms.pushPose();
-
-        ms.translate(
-                -facing.getStepX() * backOffset,
-                -facing.getStepY() * backOffset,
-                -facing.getStepZ() * backOffset
-        );
-
-        renderRodHalf(state, PartialModelRegistriesCLM.PNEUMATIC_CYLINDER_ROD_BACK_HALF, facing, ms, vb, light);
+        /*
+         * Segment blocks are behind the piston head, so the half closest to the
+         * head must appear before the rear half.
+         */
+        renderRodHalf(state, PartialModelRegistriesCLM.PNEUMATIC_CYLINDER_ROD_FRONT_HALF, facing, ms, vb, light);
 
         if (amount > 0.5f)
-            renderRodHalf(state, PartialModelRegistriesCLM.PNEUMATIC_CYLINDER_ROD_FRONT_HALF, facing, ms, vb, light);
-
-        ms.popPose();
+            renderRodHalf(state, PartialModelRegistriesCLM.PNEUMATIC_CYLINDER_ROD_BACK_HALF, facing, ms, vb, light);
     }
 
     private void renderRodHalf(BlockState state,
@@ -80,10 +72,5 @@ public class PneumaticCylinderRodSegmentRenderer extends SafeBlockEntityRenderer
             case EAST -> buffer.rotateZDegrees(-90);
             case WEST -> buffer.rotateZDegrees(90);
         }
-    }
-
-    @Override
-    public boolean shouldRenderOffScreen(PneumaticCylinderRodSegmentBlockEntity be) {
-        return be.getLocalExtensionAmount(1.0f) > 0.001f;
     }
 }
