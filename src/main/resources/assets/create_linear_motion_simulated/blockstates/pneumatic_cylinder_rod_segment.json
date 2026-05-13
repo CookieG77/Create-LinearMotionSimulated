@@ -1,10 +1,59 @@
 {
     "variants": {
-        "facing=up": { "model": "create_linear_motion_simulated:block/empty" },
-        "facing=down": { "model": "create_linear_motion_simulated:block/empty" },
-        "facing=north": { "model": "create_linear_motion_simulated:block/empty" },
-        "facing=south": { "model": "create_linear_motion_simulated:block/empty" },
-        "facing=east": { "model": "create_linear_motion_simulated:block/empty" },
-        "facing=west": { "model": "create_linear_motion_simulated:block/empty" }
+        "facing=up,full=false": {
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_half"
+        },
+        "facing=up,full=true": {
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_full"
+        },
+
+        "facing=down,full=false": {
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_half",
+            "x": 180
+        },
+        "facing=down,full=true": {
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_full",
+            "x": 180
+        },
+
+        "facing=north,full=false": {
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_half",
+            "x": 270
+        },
+        "facing=north,full=true": {
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_full",
+            "x": 270
+        },
+
+        "facing=south,full=false": {
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_half",
+            "x": 90
+        },
+        "facing=south,full=true": {
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_full",
+            "x": 90
+        },
+
+        "facing=east,full=false": {
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_half",
+            "x": 90,
+            "y": 90
+        },
+        "facing=east,full=true": {
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_full",
+            "x": 90,
+            "y": 90
+        },
+
+        "facing=west,full=false": {
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_half",
+            "x": 90,
+            "y": 270
+        },
+        "facing=west,full=true": {
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_full",
+            "x": 90,
+            "y": 270
+        }
     }
 }

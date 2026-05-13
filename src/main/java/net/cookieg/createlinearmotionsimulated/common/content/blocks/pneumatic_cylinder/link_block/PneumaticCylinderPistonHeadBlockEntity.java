@@ -20,8 +20,17 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
 import java.util.UUID;
+import net.minecraft.world.level.block.Block;
 
 public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity implements BlockEntitySubLevelActor {
+
+    /*
+     * The piston head is 3 pixels thick.
+     * The visual switches to head_full only once the head has fully cleared
+     * the cylinder body.
+     */
+    private static final float FULL_MODEL_EXTENSION_THRESHOLD = 3f / 16f;
+    public static final float BASE_VISIBLE_ROD = 0.5f;
 
     private BlockPos parent;
     private UUID parentSubLevelId;
@@ -154,9 +163,15 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
     }
 
     public void setExtensionData(float extension, float maxExtension) {
+        float clampedMax = Math.max(0, maxExtension);
+        float clampedExtension = Math.max(0, Math.min(clampedMax, extension));
+
         this.prevExtension = this.extension;
-        this.extension = extension;
-        this.maxExtension = maxExtension;
+        this.extension = clampedExtension;
+        this.maxExtension = clampedMax;
+
+        updateVisualBlockState();
+
         setChanged();
         sendData();
     }
@@ -233,5 +248,35 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
             return null;
 
         return List.of(parentSubLevel);
+    }
+
+    public boolean shouldRenderFullModel() {
+        return extension >= FULL_MODEL_EXTENSION_THRESHOLD;
+    }
+
+    private void updateVisualBlockState() {
+        if (level == null || level.isClientSide)
+            return;
+
+        BlockState oldState = level.getBlockState(worldPosition);
+        if (!(oldState.getBlock() instanceof PneumaticCylinderPistonHeadBlock))
+            return;
+
+        boolean full = shouldRenderFullModel();
+
+        if (oldState.getValue(PneumaticCylinderPistonHeadBlock.FULL) == full)
+            return;
+
+        BlockState newState = oldState.setValue(PneumaticCylinderPistonHeadBlock.FULL, full);
+
+        level.setBlock(worldPosition, newState, Block.UPDATE_ALL);
+
+        /*
+         * Force client-side model refresh. This is important because FULL changes
+         * the baked model selected by the blockstate JSON.
+         */
+        level.sendBlockUpdated(worldPosition, oldState, newState, Block.UPDATE_ALL);
+
+        setChanged();
     }
 }

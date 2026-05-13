@@ -52,7 +52,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.link_block.PneumaticCylinderPistonHeadRenderer.BASE_VISIBLE_ROD;
+import static net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.link_block.PneumaticCylinderPistonHeadBlockEntity.BASE_VISIBLE_ROD;
 
 public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements IHaveGoggleInformation, IMultiBlockEntityContainer, BlockEntitySubLevelActor {
 
@@ -337,7 +337,8 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
         BlockState headState = BlockRegistriesCLM.PNEUMATIC_CYLINDER_PISTON_HEAD.get()
                 .defaultBlockState()
-                .setValue(PneumaticCylinderPistonHeadBlock.FACING, facing);
+                .setValue(PneumaticCylinderPistonHeadBlock.FACING, facing)
+                .setValue(PneumaticCylinderPistonHeadBlock.FULL, false);
 
         BlockState existingState = level.getBlockState(temporaryHeadWorldPos);
 
@@ -1067,19 +1068,30 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
         int maxSegments = (int) Math.ceil(getMaxExtension());
         float visualExtension = getVisualExtension();
-        int wantedSegments = Math.max(0, (int) Math.ceil(visualExtension + BASE_VISIBLE_ROD - 0.001f) - 1);
+        float visibleBehindHead = visualExtension + BASE_VISIBLE_ROD;
+
+        int wantedSegments = Math.max(0, (int) Math.ceil(visibleBehindHead - 0.001f) - 1);
 
         for (int i = 1; i <= maxSegments; i++) {
             BlockPos segmentPos = pistonHeadPos.relative(back, i);
             boolean shouldExist = i <= wantedSegments;
 
             if (shouldExist) {
-                if (!level.getBlockState(segmentPos).is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get())) {
-                    BlockState segmentState = BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get()
-                            .defaultBlockState()
-                            .setValue(PneumaticCylinderRodSegmentBlock.FACING, facing);
+                float localAmount = Math.max(0, Math.min(1, visibleBehindHead - i));
+                boolean full = localAmount > 0.5f;
 
+                BlockState segmentState = BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get()
+                        .defaultBlockState()
+                        .setValue(PneumaticCylinderRodSegmentBlock.FACING, facing)
+                        .setValue(PneumaticCylinderRodSegmentBlock.FULL, full);
+
+                BlockState currentState = level.getBlockState(segmentPos);
+
+                if (!currentState.is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get())) {
                     level.setBlock(segmentPos, segmentState, Block.UPDATE_ALL);
+                } else if (currentState.getValue(PneumaticCylinderRodSegmentBlock.FACING) != facing
+                        || currentState.getValue(PneumaticCylinderRodSegmentBlock.FULL) != full) {
+                    level.setBlock(segmentPos, segmentState, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
                 }
 
                 BlockEntity be = level.getBlockEntity(segmentPos);
@@ -1091,8 +1103,8 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
                     segmentBE.setExtensionData(visualExtension, prevExtension, getMaxExtension());
                 }
 
-                BlockState state = level.getBlockState(segmentPos);
-                level.sendBlockUpdated(segmentPos, state, state, Block.UPDATE_CLIENTS);
+                BlockState updatedState = level.getBlockState(segmentPos);
+                level.sendBlockUpdated(segmentPos, updatedState, updatedState, Block.UPDATE_CLIENTS);
             } else {
                 BlockEntity be = level.getBlockEntity(segmentPos);
                 if (be instanceof PneumaticCylinderRodSegmentBlockEntity segmentBE) {

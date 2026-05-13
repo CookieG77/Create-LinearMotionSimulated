@@ -100,7 +100,7 @@ public class PartialModelRegistriesCLM {
      * The separated piston head / link block.
      */
     public static final PartialModel PNEUMATIC_CYLINDER_PISTON_HEAD =
-            block("pneumatic_cylinder/link_block/block");
+            block("pneumatic_cylinder/head/head");
 
     /**
      * Front half of one rod block.

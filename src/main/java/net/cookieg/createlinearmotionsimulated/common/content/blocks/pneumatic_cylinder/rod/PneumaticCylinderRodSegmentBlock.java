@@ -9,14 +9,15 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.DirectionalBlock;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -27,9 +28,13 @@ public class PneumaticCylinderRodSegmentBlock extends DirectionalBlock implement
     public static final MapCodec<PneumaticCylinderRodSegmentBlock> CODEC =
             simpleCodec(PneumaticCylinderRodSegmentBlock::new);
 
+    public static final BooleanProperty FULL = BooleanProperty.create("full");
+
     public PneumaticCylinderRodSegmentBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(FACING, Direction.NORTH));
+        registerDefaultState(defaultBlockState()
+                .setValue(FACING, Direction.NORTH)
+                .setValue(FULL, false));
     }
 
     @Override
@@ -39,12 +44,12 @@ public class PneumaticCylinderRodSegmentBlock extends DirectionalBlock implement
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING);
+        builder.add(FACING, FULL);
     }
 
     @Override
     protected @NotNull RenderShape getRenderShape(@NotNull BlockState state) {
-        return RenderShape.INVISIBLE;
+        return RenderShape.MODEL;
     }
 
     @Override
@@ -122,7 +127,6 @@ public class PneumaticCylinderRodSegmentBlock extends DirectionalBlock implement
         return Block.box(minX, minY, minZ, maxX, maxY, maxZ);
     }
 
-
     @Override
     public void beforeMove(ServerLevel originLevel,
                            ServerLevel resultingLevel,
@@ -142,7 +146,7 @@ public class PneumaticCylinderRodSegmentBlock extends DirectionalBlock implement
     }
 
     @Override
-    public BlockState playerWillDestroy(Level level, @NotNull BlockPos pos, @NotNull BlockState state, @NotNull Player player) {
+    public @NotNull BlockState playerWillDestroy(Level level, @NotNull BlockPos pos, @NotNull BlockState state, @NotNull Player player) {
         if (!level.isClientSide && level.getBlockEntity(pos) instanceof PneumaticCylinderRodSegmentBlockEntity segmentBE) {
             BlockPos linkedHeadPos = segmentBE.getHeadPos();
             if (linkedHeadPos != null && level.getBlockState(linkedHeadPos).is(net.cookieg.createlinearmotionsimulated.common.registries.BlockRegistriesCLM.PNEUMATIC_CYLINDER_PISTON_HEAD.get()))
@@ -161,6 +165,4 @@ public class PneumaticCylinderRodSegmentBlock extends DirectionalBlock implement
     public BlockEntityType<? extends PneumaticCylinderRodSegmentBlockEntity> getBlockEntityType() {
         return BlockEntityRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get();
     }
-
-
 }

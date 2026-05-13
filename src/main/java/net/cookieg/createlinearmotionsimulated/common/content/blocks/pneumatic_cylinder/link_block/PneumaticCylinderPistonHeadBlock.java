@@ -23,17 +23,26 @@ import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_c
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 
 public class PneumaticCylinderPistonHeadBlock extends DirectionalBlock implements IBE<PneumaticCylinderPistonHeadBlockEntity>, BlockSubLevelAssemblyListener {
 
     public static final MapCodec<PneumaticCylinderPistonHeadBlock> CODEC =
             simpleCodec(PneumaticCylinderPistonHeadBlock::new);
 
+    public static final BooleanProperty FULL = BooleanProperty.create("full");
+
     private static final int HEAD_PIXELS = 3;
 
     public PneumaticCylinderPistonHeadBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(FACING, Direction.NORTH));
+        registerDefaultState(defaultBlockState()
+                .setValue(FACING, Direction.NORTH)
+                .setValue(FULL, false));
     }
 
     @Override
@@ -43,12 +52,14 @@ public class PneumaticCylinderPistonHeadBlock extends DirectionalBlock implement
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING);
+        builder.add(FACING, FULL);
     }
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
-        return defaultBlockState().setValue(FACING, context.getClickedFace());
+        return defaultBlockState()
+                .setValue(FACING, context.getClickedFace())
+                .setValue(FULL, false);
     }
 
     @Override
@@ -199,4 +210,30 @@ public class PneumaticCylinderPistonHeadBlock extends DirectionalBlock implement
     }
 
 
+    @Override
+    protected @NotNull ItemInteractionResult useItemOn(@NotNull ItemStack stack,
+                                                       @NotNull BlockState state,
+                                                       @NotNull Level level,
+                                                       @NotNull BlockPos pos,
+                                                       @NotNull Player player,
+                                                       @NotNull InteractionHand hand,
+                                                       @NotNull BlockHitResult hitResult) {
+        /*
+         * Only empty-hand interaction is allowed to toggle/disassemble the cylinder.
+         * With an item or block in hand, do not call the head logic.
+         */
+        if (stack.isEmpty())
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+
+        /*
+         * With a block item, let Minecraft try placement.
+         */
+        if (stack.getItem() instanceof BlockItem)
+            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+
+        /*
+         * With any other item, let the item handle its own action.
+         */
+        return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+    }
 }

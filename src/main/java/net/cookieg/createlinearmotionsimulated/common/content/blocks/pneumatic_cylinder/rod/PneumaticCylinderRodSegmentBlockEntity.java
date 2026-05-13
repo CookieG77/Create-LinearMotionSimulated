@@ -17,7 +17,7 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
 
-import static net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.link_block.PneumaticCylinderPistonHeadRenderer.BASE_VISIBLE_ROD;
+import static net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.link_block.PneumaticCylinderPistonHeadBlockEntity.BASE_VISIBLE_ROD;
 
 public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
 

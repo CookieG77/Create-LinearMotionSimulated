@@ -4,6 +4,7 @@
 	"textures": {
 		"0": "create_linear_motion_simulated:block/pneumatic_cylinder/pneumatic_cylinder",
 		"3": "create_linear_motion_simulated:block/pneumatic_cylinder/pneumatic_cylinder_top",
+		"4": "create_linear_motion_simulated:block/pneumatic_cylinder/pneumaticcylinder_rod",
 		"particle": "create_linear_motion_simulated:block/pneumatic_cylinder/pneumatic_cylinder"
 	},
 	"elements": [
@@ -17,6 +18,16 @@
 				"west": {"uv": [0, 0, 16, 3], "texture": "#0"},
 				"up": {"uv": [0, 0, 16, 16], "texture": "#3"},
 				"down": {"uv": [0, 0, 16, 16], "texture": "#3"}
+			}
+		},
+		{
+			"from": [4, 0, 4],
+			"to": [12, 13, 12],
+			"faces": {
+				"north": {"uv": [4, 3, 12, 16], "texture": "#4"},
+				"east": {"uv": [4, 3, 12, 16], "texture": "#4"},
+				"south": {"uv": [4, 3, 12, 16], "texture": "#4"},
+				"west": {"uv": [4, 3, 12, 16], "texture": "#4"}
 			}
 		}
 	],
@@ -35,6 +46,7 @@
 					"children": [0]
 				}
 			]
-		}
+		},
+		1
 	]
 }
