@@ -38,6 +38,8 @@ import javax.annotation.Nullable;
 
 public class PneumaticCylinderBlock extends DirectionalKineticBlock implements IWrenchable, IBE<PneumaticCylinderBlockEntity>, BlockSubLevelAssemblyListener {
 
+    private static final int FRONT_CLEARANCE_PIXELS = 3;
+
     public static final MapCodec<PneumaticCylinderBlock> CODEC = simpleCodec(PneumaticCylinderBlock::new);
 
     public static final BooleanProperty ASSEMBLED = BooleanProperty.create("assembled");
@@ -313,10 +315,8 @@ public class PneumaticCylinderBlock extends DirectionalKineticBlock implements I
         return state.getBlock() instanceof PneumaticCylinderBlock;
     }
 
-    private static final int HEAD_PIXELS = 3;
-
     private static VoxelShape shortenedFromFront(Direction facing) {
-        double cut = HEAD_PIXELS;
+        double cut = FRONT_CLEARANCE_PIXELS;
 
         double minX = 0;
         double minY = 0;

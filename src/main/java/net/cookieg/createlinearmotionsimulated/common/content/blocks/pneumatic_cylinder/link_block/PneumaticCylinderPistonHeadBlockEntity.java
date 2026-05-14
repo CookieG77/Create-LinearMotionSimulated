@@ -4,7 +4,9 @@ import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.api.block.BlockEntitySubLevelActor;
+import dev.ryanhcode.sable.api.physics.handle.RigidBodyHandle;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
+import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.PneumaticCylinderBlockEntity;
 import net.cookieg.createlinearmotionsimulated.common.registries.BlockEntityRegistriesCLM;
@@ -30,7 +32,7 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
      * the cylinder body.
      */
     private static final float FULL_MODEL_EXTENSION_THRESHOLD = 3f / 16f;
-    public static final float BASE_VISIBLE_ROD = 0.5f;
+    public static final float BASE_VISIBLE_ROD = 0.6f;
 
     private BlockPos parent;
     private UUID parentSubLevelId;
@@ -278,5 +280,20 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
         level.sendBlockUpdated(worldPosition, oldState, newState, Block.UPDATE_ALL);
 
         setChanged();
+    }
+
+    @Override
+    public void sable$physicsTick(final ServerSubLevel subLevel,
+                                  final RigidBodyHandle handle,
+                                  final double timeStep) {
+        if (parent == null || level == null || level.isClientSide)
+            return;
+
+        BlockEntity be = level.getBlockEntity(parent);
+        if (be instanceof PneumaticCylinderBlockEntity cylinder) {
+            PneumaticCylinderBlockEntity controller = cylinder.getControllerBE();
+            if (controller != null)
+                controller.updatePistonMotorCoefficients();
+        }
     }
 }

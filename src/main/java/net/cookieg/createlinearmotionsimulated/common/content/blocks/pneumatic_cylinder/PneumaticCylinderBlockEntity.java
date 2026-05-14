@@ -74,6 +74,10 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     protected BlockPos pistonHeadPos;
     protected UUID pistonHeadSubLevelId;
 
+    private static final double PISTON_MOTOR_STIFFNESS = 4500.0;
+    private static final double PISTON_MOTOR_DAMPING = 900.0;
+    private static final double PISTON_MOTOR_MAX_IMPULSE = 0.0;
+
     @Nullable
     protected AssemblyException lastAssemblyException;
     /**
@@ -1187,6 +1191,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         pistonConstraint = pipeline.addConstraint(baseSubLevel, headSubLevel, config);
         rebuildConstraintOnLoad = false;
         pistonConstraint.setContactsEnabled(false);
+        updateAttachedHeadConstraint(extension);
 
         if (baseSubLevel != null)
             pipeline.wakeUp(baseSubLevel);
@@ -1199,9 +1204,9 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         BlockPos front = getFrontBlockPos();
 
         return new Vector3d(
-                front.getX() + 0.5 + facing.getStepX() * extension,
-                front.getY() + 0.5 + facing.getStepY() * extension,
-                front.getZ() + 0.5 + facing.getStepZ() * extension
+                front.getX() + 0.5 + facing.getStepX() * clampExtension(extension),
+                front.getY() + 0.5 + facing.getStepY() * clampExtension(extension),
+                front.getZ() + 0.5 + facing.getStepZ() * clampExtension(extension)
         );
     }
 
@@ -1210,22 +1215,41 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     }
 
     private Set<ConstraintJointAxis> getLockedConstraintAxes() {
-        return EnumSet.allOf(ConstraintJointAxis.class);
+        EnumSet<ConstraintJointAxis> axes = EnumSet.allOf(ConstraintJointAxis.class);
+
+        /*
+         * Leave the piston translation axis free.
+         * It will be driven with setMotor(...).
+         */
+        axes.remove(getLinearConstraintAxis());
+
+        return axes;
     }
 
     private void updateAttachedHeadConstraint(float requestedExtension) {
-        if (pistonConstraint == null || !pistonConstraint.isValid())
-            return;
-
         if (level == null || !(level instanceof ServerLevel serverLevel))
             return;
 
-        float clampedExtension = clampExtension(requestedExtension);
-        Direction facing = getFacing();
+        if (pistonConstraint == null || !pistonConstraint.isValid())
+            return;
 
-        pistonConstraint.setFrame1(
-                getConstraintBaseFramePosition(clampedExtension),
-                orientationForFacing(facing)
+        float clampedExtension = clampExtension(requestedExtension);
+        if (!Float.isFinite(clampedExtension))
+            return;
+
+        /*
+         * Do NOT move constraint frames every tick.
+         * Simulated's Swivel Bearing keeps constraint anchors stable and updates a
+         * motor target instead. Moving a hard-locked frame on a dynamic sublevel
+         * injects solver impulses and can spin the whole contraption.
+         */
+        pistonConstraint.setMotor(
+                getLinearConstraintAxis(),
+                clampedExtension,
+                PISTON_MOTOR_STIFFNESS,
+                PISTON_MOTOR_DAMPING,
+                false,
+                PISTON_MOTOR_MAX_IMPULSE
         );
 
         ServerSubLevelContainer container =
@@ -1237,12 +1261,20 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         PhysicsPipeline pipeline = container.physicsSystem().getPipeline();
 
         SubLevel containing = Sable.HELPER.getContaining(this);
-        if (containing instanceof ServerSubLevel baseSubLevel)
-            pipeline.wakeUp(baseSubLevel);
+        if (containing instanceof ServerSubLevel bodySubLevel)
+            pipeline.wakeUp(bodySubLevel);
 
         SubLevel attached = getAttachedHeadSubLevel();
         if (attached instanceof ServerSubLevel headSubLevel)
             pipeline.wakeUp(headSubLevel);
+    }
+
+    private ConstraintJointAxis getLinearConstraintAxis() {
+        return switch (getFacing().getAxis()) {
+            case X -> ConstraintJointAxis.LINEAR_X;
+            case Y -> ConstraintJointAxis.LINEAR_Y;
+            case Z -> ConstraintJointAxis.LINEAR_Z;
+        };
     }
 
     private void rebuildAttachedHeadConstraint() {
@@ -1625,5 +1657,22 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
         setChanged();
         sendData();
+    }
+
+    public void updatePistonMotorCoefficients() {
+        if (level == null || level.isClientSide)
+            return;
+
+        if (!isController()) {
+            PneumaticCylinderBlockEntity controllerBE = getControllerBE();
+            if (controllerBE != null)
+                controllerBE.updatePistonMotorCoefficients();
+            return;
+        }
+
+        if (!assembled || pistonConstraint == null || !pistonConstraint.isValid())
+            return;
+
+        updateAttachedHeadConstraint(extension);
     }
 }
