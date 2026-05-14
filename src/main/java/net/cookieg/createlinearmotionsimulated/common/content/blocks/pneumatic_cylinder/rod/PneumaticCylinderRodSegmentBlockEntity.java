@@ -126,16 +126,13 @@ public class PneumaticCylinderRodSegmentBlockEntity extends SmartBlockEntity {
         if (forceFullRender)
             return 1.0f;
 
-        float renderedExtension = getRenderedExtension(partialTicks);
-
         /*
-         * La tête affiche déjà BASE_VISIBLE_ROD.
-         * Le segment 1 commence à apparaître quand la longueur visible dépasse
-         * un block complet derrière la tête.
+         * The rod block model is no longer smoothly interpolated.
+         * It is quantized by the controller:
+         *   0.5 -> rod_half
+         *   1.0 -> rod_full
          */
-        float visibleBehindHead = renderedExtension + BASE_VISIBLE_ROD;
-
-        return Math.max(0, Math.min(1, visibleBehindHead - indexBehindHead));
+        return Math.max(0, Math.min(1, getRenderedExtension(partialTicks)));
     }
 
     @Override

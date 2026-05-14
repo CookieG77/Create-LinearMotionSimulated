@@ -1,6 +1,7 @@
 package net.cookieg.createlinearmotionsimulated.common.registries;
 
 import net.cookieg.createlinearmotionsimulated.common.CreateLinearMotionSimulated;
+import net.cookieg.createlinearmotionsimulated.common.content.items.block_items.PneumaticCylinderBlockItem;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
@@ -12,9 +13,12 @@ public class ItemRegistriesCLM {
             DeferredRegister.createItems(CreateLinearMotionSimulated.ID);
 
 
-    public static final DeferredHolder<Item, BlockItem> PNEUMATIC_CYLINDER_ITEM =
+    public static final DeferredHolder<Item, PneumaticCylinderBlockItem> PNEUMATIC_CYLINDER_ITEM =
             ITEMS.register("pneumatic_cylinder",
-                    () -> new BlockItem(BlockRegistriesCLM.PNEUMATIC_CYLINDER.get(), new Item.Properties()));
+                    () -> new PneumaticCylinderBlockItem(
+                            BlockRegistriesCLM.PNEUMATIC_CYLINDER.get(),
+                            new Item.Properties()
+                    ));
 
     public static void register(IEventBus modEventBus) {
         ITEMS.register(modEventBus);

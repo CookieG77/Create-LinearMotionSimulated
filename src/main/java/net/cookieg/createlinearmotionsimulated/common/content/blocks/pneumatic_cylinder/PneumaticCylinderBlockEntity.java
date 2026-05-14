@@ -3,10 +3,12 @@ package net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_
 import com.simibubi.create.api.connectivity.ConnectivityHandler;
 import com.simibubi.create.api.equipment.goggles.IHaveGoggleInformation;
 import com.simibubi.create.content.contraptions.AssemblyException;
+import com.simibubi.create.content.kinetics.base.IRotate;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntityRenderer;
 import com.simibubi.create.foundation.blockEntity.IMultiBlockEntityContainer;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
+import com.simibubi.create.foundation.utility.CreateLang;
 import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.api.block.BlockEntitySubLevelActor;
 import dev.ryanhcode.sable.api.physics.PhysicsPipeline;
@@ -33,6 +35,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -53,13 +56,42 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.link_block.PneumaticCylinderPistonHeadBlockEntity.BASE_VISIBLE_ROD;
+import static net.cookieg.createlinearmotionsimulated.common.registries.StressRegistriesCLM.PNEUMATIC_CYLINDER_STRESS_IMPACT;
 
 public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements IHaveGoggleInformation, IMultiBlockEntityContainer, BlockEntitySubLevelActor {
 
     private static final int MAX_WIDTH = 1;
     private static final int MAX_LENGTH = 16;
 
-    private static final Set<String> RECENT_SUBLEVEL_MOVES = ConcurrentHashMap.newKeySet();
+    private static final double PISTON_MOTOR_STIFFNESS = 4500.0;
+    private static final double PISTON_MOTOR_DAMPING = 900.0;
+    private static final double PISTON_MOTOR_MAX_IMPULSE = 0.0;
+    private static final double PISTON_HEAD_ZERO_OFFSET_BLOCKS = 0.0;
+
+    private static final float ROD_VISUAL_EPSILON = 0.001f;
+
+    /*
+     * Visual delay used because the physics motor eases/smooths the real motion.
+     * Lower = more delayed visual rods.
+     * Higher = closer to the logical extension.
+     */
+    private static final float ROD_VISUAL_FOLLOW_FACTOR = 0.55f;
+
+    /*
+     * Prevent the visual from getting stuck when RPM is very low or zero.
+     */
+    private static final float ROD_VISUAL_MIN_STEP = 1f / 32f;
+
+    /*
+     * The head block itself is responsible for the first 2 half-units:
+     *   1 half-unit  -> head_half
+     *   2 half-units -> head_full
+     *
+     * Rod segment blocks start after that.
+     */
+    private static final int HEAD_ROD_HALF_UNITS = 2;
+
+    private static final float ROD_VISUAL_INSET = 4f / 16f;
 
     protected BlockPos controller;
     protected BlockPos lastKnownPos;
@@ -73,10 +105,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     protected boolean assembled;
     protected BlockPos pistonHeadPos;
     protected UUID pistonHeadSubLevelId;
-
-    private static final double PISTON_MOTOR_STIFFNESS = 4500.0;
-    private static final double PISTON_MOTOR_DAMPING = 900.0;
-    private static final double PISTON_MOTOR_MAX_IMPULSE = 0.0;
 
     @Nullable
     protected AssemblyException lastAssemblyException;
@@ -116,6 +144,8 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     protected float extension;
     protected float prevExtension;
     protected float targetExtension;
+    protected float rodVisualExtension;
+    protected float prevRodVisualExtension;
 
     protected int redstonePower;
     protected int previousRedstonePower;
@@ -160,6 +190,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         }
 
         prevExtension = extension;
+        prevRodVisualExtension = rodVisualExtension;
 
         if (!level.isClientSide) {
             if (updateConnectivity)
@@ -260,6 +291,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
         if (speed <= 0.0001f) {
             if (assembled) {
+                updateRodVisualExtension();
                 syncHeadActorData();
                 syncRodSegments();
                 updateAttachedHeadConstraint(extension);
@@ -278,6 +310,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             extension = Math.max(targetExtension, extension - speed);
 
         if (assembled) {
+            updateRodVisualExtension();
             syncHeadActorData();
             syncRodSegments();
             updateAttachedHeadConstraint(extension);
@@ -420,6 +453,8 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         extension = 0;
         prevExtension = 0;
         targetExtension = 0;
+        rodVisualExtension = 0;
+        prevRodVisualExtension = 0;
 
         createAttachedHeadConstraint(assembledSubLevel, assembledHeadPos);
 
@@ -455,6 +490,8 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         extension = 0;
         prevExtension = 0;
         targetExtension = 0;
+        rodVisualExtension = 0;
+        prevRodVisualExtension = 0;
         disassembleRequested = false;
 
         updateAllPartStates();
@@ -629,6 +666,8 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         extension = 0;
         prevExtension = 0;
         targetExtension = 0;
+        rodVisualExtension = 0;
+        prevRodVisualExtension = 0;
 
         redstonePower = 0;
         previousRedstonePower = 0;
@@ -791,6 +830,10 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         extension = compound.getFloat("Extension");
         prevExtension = extension;
         targetExtension = compound.getFloat("TargetExtension");
+        rodVisualExtension = compound.contains("RodVisualExtension")
+                ? compound.getFloat("RodVisualExtension")
+                : extension;
+        prevRodVisualExtension = rodVisualExtension;
         redstonePower = compound.getInt("RedstonePower");
         previousRedstonePower = compound.getInt("PreviousRedstonePower");
         stableRedstonePower = compound.contains("StableRedstonePower")
@@ -815,6 +858,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             compound.put("Controller", NbtUtils.writeBlockPos(controller));
 
         if (isController()) {
+            compound.putFloat("RodVisualExtension", rodVisualExtension);
             compound.putInt("Size", width);
             compound.putInt("Height", height);
             compound.putBoolean("Assembled", assembled);
@@ -851,6 +895,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             compound.putBoolean("Assembled", assembled);
             compound.putBoolean("ShaftInstalled", shaftInstalled);
             compound.putInt("RedstonePower", redstonePower);
+            compound.putFloat("RodVisualExtension", rodVisualExtension);
         }
 
         super.writeSafe(compound, registries);
@@ -862,32 +907,66 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         if (controllerBE == null)
             return false;
 
-        tooltip.add(Component.literal("    ")
-                .append(Component.translatable("block.create_linear_motion_simulated.google_tooltip.title")));
+        boolean added = addControllerKineticStatsToGoggles(tooltip, controllerBE);
 
-        tooltip.add(Component.translatable(
-                "block.create_linear_motion_simulated.google_tooltip.max_extension",
-                Component.literal(String.format("%.2f", controllerBE.getMaxExtension())).withStyle(ChatFormatting.GOLD)
+        tooltip.add(Component.literal(""));
+
+        tooltip.add(Component.literal("    ").append(
+                Component.translatable("block.create_linear_motion_simulated.google_tooltip.max_extension",
+                        Component.literal(String.format("%.2f", controllerBE.getMaxExtension())).withStyle(ChatFormatting.GOLD))
         ));
 
-        tooltip.add(Component.translatable(
-                "block.create_linear_motion_simulated.google_tooltip.mode",
-                Component.translatable("block.create_linear_motion_simulated.google_tooltip.mode.locked").withStyle(ChatFormatting.GOLD)
-        ));
+        tooltip.add(Component.literal("    ").append(
+                Component.translatable("block.create_linear_motion_simulated.google_tooltip.mode",
+                        Component.translatable("block.create_linear_motion_simulated.google_tooltip.mode.locked").withStyle(ChatFormatting.GOLD)
+                )));
 
-        tooltip.add(Component.translatable(
-                "block.create_linear_motion_simulated.google_tooltip.extension",
-                Component.literal(String.format("%.2f", controllerBE.extension)).withStyle(ChatFormatting.GOLD)
-        ));
+        tooltip.add(Component.literal("    ").append(
+                Component.translatable("block.create_linear_motion_simulated.google_tooltip.extension",
+                        Component.literal(String.format("%.2f", controllerBE.extension)).withStyle(ChatFormatting.GOLD)
+                )));
 
-        tooltip.add(Component.translatable(
-                "block.create_linear_motion_simulated.google_tooltip.powered",
-                controllerBE.redstonePower > 0
-                        ? Component.translatable("block.create_linear_motion_simulated.google_tooltip.powered.yes").withStyle(ChatFormatting.GOLD)
-                        : Component.translatable("block.create_linear_motion_simulated.google_tooltip.powered.no").withStyle(ChatFormatting.GOLD)
-        ));
+        tooltip.add(Component.literal("    ").append(
+                Component.translatable("block.create_linear_motion_simulated.google_tooltip.powered",
+                        controllerBE.redstonePower > 0
+                                ? Component.translatable("block.create_linear_motion_simulated.google_tooltip.powered.yes").withStyle(ChatFormatting.GOLD)
+                                : Component.translatable("block.create_linear_motion_simulated.google_tooltip.powered.no").withStyle(ChatFormatting.GOLD)
+                )));
 
         return true;
+    }
+
+    private boolean addControllerKineticStatsToGoggles(List<Component> tooltip, PneumaticCylinderBlockEntity controllerBE) {
+        if (!IRotate.StressImpact.isEnabled())
+            return false;
+
+        float stressAtBase = controllerBE.calculateStressApplied();
+
+        if (Mth.equal(stressAtBase, 0))
+            return false;
+
+        CreateLang.translate("gui.goggles.kinetic_stats")
+                .forGoggles(tooltip);
+
+        addControllerStressImpactStats(tooltip, stressAtBase, controllerBE.getInputSpeed());
+
+        return true;
+    }
+
+    private void addControllerStressImpactStats(List<Component> tooltip, float stressAtBase, float controllerSpeed) {
+        CreateLang.translate("tooltip.stressImpact")
+                .style(ChatFormatting.GRAY)
+                .forGoggles(tooltip);
+
+        float stressTotal = stressAtBase * Math.abs(controllerSpeed);
+
+        CreateLang.number(stressTotal)
+                .translate("generic.unit.stress")
+                .style(ChatFormatting.AQUA)
+                .space()
+                .add(CreateLang.translate("gui.goggles.at_current_speed")
+                        .style(ChatFormatting.DARK_GRAY))
+                .forGoggles(tooltip, 1);
     }
 
     public void markBlockBeingRemoved() {
@@ -1059,7 +1138,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
         BlockEntity be = level.getBlockEntity(pistonHeadPos);
         if (be instanceof PneumaticCylinderPistonHeadBlockEntity headBE) {
-            headBE.setExtensionData(getVisualExtension(), getMaxExtension());
+            headBE.setExtensionData(getRodVisualExtension(), getMaxExtension());
         }
     }
 
@@ -1070,32 +1149,59 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         Direction facing = getFacing();
         Direction back = facing.getOpposite();
 
-        int maxSegments = (int) Math.ceil(getMaxExtension());
-        float visualExtension = getVisualExtension();
-        float visibleBehindHead = visualExtension + BASE_VISIBLE_ROD;
+        float visualExtension = getRodVisualExtension();
 
-        int wantedSegments = Math.max(0, (int) Math.ceil(visibleBehindHead - 0.001f) - 1);
+        float visibleRodLength = Math.max(0, visualExtension + BASE_VISIBLE_ROD - ROD_VISUAL_INSET);
+        int totalHalfUnits = Math.max(0, (int) Math.floor((visibleRodLength + ROD_VISUAL_EPSILON) * 2.0f));
+
+        /*
+         * The head model consumes the first two half-units.
+         * Remaining half-units are represented by rod segment blocks.
+         */
+        int rodHalfUnits = Math.max(0, totalHalfUnits - HEAD_ROD_HALF_UNITS);
+
+        /*
+         * +1 because a half segment may exist at the end.
+         * Also +1 safety to remove stale rods if constants/model logic changed.
+         */
+        int maxSegments = Math.max(1, (int) Math.ceil(getMaxExtension() + BASE_VISIBLE_ROD) + 1);
 
         for (int i = 1; i <= maxSegments; i++) {
             BlockPos segmentPos = pistonHeadPos.relative(back, i);
-            boolean shouldExist = i <= wantedSegments;
+            BlockState currentState = level.getBlockState(segmentPos);
+
+            /*
+             * Segment i consumes two half-units:
+             *   i = 1 -> half-units 1 and 2 after the head
+             *   i = 2 -> half-units 3 and 4 after the head
+             */
+            int segmentStartHalfUnit = (i - 1) * 2;
+            int segmentHalfUnits = Math.max(0, Math.min(2, rodHalfUnits - segmentStartHalfUnit));
+
+            boolean shouldExist = segmentHalfUnits > 0;
+            boolean full = segmentHalfUnits >= 2;
+
+            /*
+             * Never replace the cylinder body. If a segment would overlap the body,
+             * it must simply not exist.
+             */
+            if (currentState.is(BlockRegistriesCLM.PNEUMATIC_CYLINDER.get()))
+                shouldExist = false;
 
             if (shouldExist) {
-                float localAmount = Math.max(0, Math.min(1, visibleBehindHead - i));
-                boolean full = localAmount > 0.5f;
-
                 BlockState segmentState = BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get()
                         .defaultBlockState()
                         .setValue(PneumaticCylinderRodSegmentBlock.FACING, facing)
                         .setValue(PneumaticCylinderRodSegmentBlock.FULL, full);
 
-                BlockState currentState = level.getBlockState(segmentPos);
-
                 if (!currentState.is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get())) {
+                    if (!currentState.canBeReplaced())
+                        continue;
+
                     level.setBlock(segmentPos, segmentState, Block.UPDATE_ALL);
                 } else if (currentState.getValue(PneumaticCylinderRodSegmentBlock.FACING) != facing
                         || currentState.getValue(PneumaticCylinderRodSegmentBlock.FULL) != full) {
-                    level.setBlock(segmentPos, segmentState, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+                    level.setBlock(segmentPos, segmentState, Block.UPDATE_ALL);
                 }
 
                 BlockEntity be = level.getBlockEntity(segmentPos);
@@ -1104,7 +1210,13 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
                     segmentBE.setIndexBehindHead(i);
                     segmentBE.setAssembling(false);
                     segmentBE.setForceFullRender(false);
-                    segmentBE.setExtensionData(visualExtension, prevExtension, getMaxExtension());
+
+                    /*
+                     * Send the quantized visible amount for selection/collision.
+                     * 0.5 for rod_half, 1.0 for rod_full.
+                     */
+                    float quantizedLocalAmount = segmentHalfUnits * 0.5f;
+                    segmentBE.setExtensionData(quantizedLocalAmount, quantizedLocalAmount, 1.0f);
                 }
 
                 BlockState updatedState = level.getBlockState(segmentPos);
@@ -1116,7 +1228,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
                     segmentBE.setForceFullRender(false);
                 }
 
-                if (level.getBlockState(segmentPos).is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get()))
+                if (currentState.is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get()))
                     level.setBlock(segmentPos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
             }
         }
@@ -1135,7 +1247,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             return;
 
         Direction back = getFacing().getOpposite();
-        int maxSegments = (int) Math.ceil(getMaxExtension());
+        int maxSegments = Math.max(1, (int) Math.ceil(getMaxExtension() + BASE_VISIBLE_ROD) + 1);
 
         for (int i = 1; i <= maxSegments; i++) {
             BlockPos segmentPos = pistonHeadPos.relative(back, i);
@@ -1199,15 +1311,27 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         pipeline.wakeUp(headSubLevel);
     }
 
-    private Vector3d getConstraintBaseFramePosition(float extension) {
-        Direction facing = getFacing();
+    private Vector3d getConstraintBaseFramePosition(float ignoredExtension) {
         BlockPos front = getFrontBlockPos();
 
         return new Vector3d(
-                front.getX() + 0.5 + facing.getStepX() * clampExtension(extension),
-                front.getY() + 0.5 + facing.getStepY() * clampExtension(extension),
-                front.getZ() + 0.5 + facing.getStepZ() * clampExtension(extension)
+                front.getX() + 0.5,
+                front.getY() + 0.5,
+                front.getZ() + 0.5
         );
+    }
+
+    private double getSignedPistonMotorTarget(float extension) {
+        double distance = PISTON_HEAD_ZERO_OFFSET_BLOCKS + clampExtension(extension);
+
+        /*
+         * Since orientationForFacing(...) currently returns identity, LINEAR_X/Y/Z
+         * are effectively world-axis based. Negative-facing cylinders must therefore
+         * use a negative motor target.
+         */
+        return getFacing().getAxisDirection() == Direction.AxisDirection.NEGATIVE
+                ? -distance
+                : distance;
     }
 
     private Quaterniond orientationForFacing(Direction facing) {
@@ -1237,15 +1361,11 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         if (!Float.isFinite(clampedExtension))
             return;
 
-        /*
-         * Do NOT move constraint frames every tick.
-         * Simulated's Swivel Bearing keeps constraint anchors stable and updates a
-         * motor target instead. Moving a hard-locked frame on a dynamic sublevel
-         * injects solver impulses and can spin the whole contraption.
-         */
+        double target = getSignedPistonMotorTarget(clampedExtension);
+
         pistonConstraint.setMotor(
                 getLinearConstraintAxis(),
-                clampedExtension,
+                target,
                 PISTON_MOTOR_STIFFNESS,
                 PISTON_MOTOR_DAMPING,
                 false,
@@ -1326,6 +1446,8 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         extension = 0;
         prevExtension = 0;
         targetExtension = 0;
+        rodVisualExtension = 0;
+        prevRodVisualExtension = 0;
         assembleRequested = false;
         disassembleRequested = false;
 
@@ -1358,6 +1480,8 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         extension = 0;
         prevExtension = 0;
         targetExtension = 0;
+        rodVisualExtension = 0;
+        prevRodVisualExtension = 0;
         redstoneResetRequired = false;
 
         setChanged();
@@ -1674,5 +1798,56 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             return;
 
         updateAttachedHeadConstraint(extension);
+    }
+
+    public float getStressImpact() {
+        return (float) PNEUMATIC_CYLINDER_STRESS_IMPACT;
+    }
+
+    public float getCurrentStressImpact() {
+        return Math.abs(getInputSpeed()) * getStressImpact();
+    }
+
+    @Override
+    public float calculateStressApplied() {
+        /*
+         * Create stress convention:
+         * stress = impact * abs(RPM)
+         *
+         * With impact = 4:
+         * 256 RPM -> 1024 SU
+         */
+        return getStressImpact();
+    }
+
+    private void updateRodVisualExtension() {
+        float target = clampExtension(extension);
+
+        if (!assembled || pistonHeadPos == null) {
+            rodVisualExtension = target;
+            prevRodVisualExtension = target;
+            return;
+        }
+
+        float baseSpeed = disassembleRequested
+                ? getForcedReturnSpeedBlocksPerTick()
+                : getLinearSpeedBlocksPerTick();
+
+        /*
+         * We intentionally make the visual follow slightly slower than the logical
+         * extension, because the physical motor does not move instantly.
+         */
+        float maxStep = Math.max(ROD_VISUAL_MIN_STEP, baseSpeed * ROD_VISUAL_FOLLOW_FACTOR);
+
+        if (rodVisualExtension < target)
+            rodVisualExtension = Math.min(target, rodVisualExtension + maxStep);
+        else if (rodVisualExtension > target)
+            rodVisualExtension = Math.max(target, rodVisualExtension - maxStep);
+
+        rodVisualExtension = clampExtension(rodVisualExtension);
+    }
+
+    private float getRodVisualExtension() {
+        return clampExtension(rodVisualExtension);
     }
 }
