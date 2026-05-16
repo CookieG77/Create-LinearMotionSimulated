@@ -4,6 +4,7 @@ import com.mojang.serialization.MapCodec;
 import com.simibubi.create.foundation.block.IBE;
 import dev.ryanhcode.sable.api.block.BlockSubLevelAssemblyListener;
 import net.cookieg.createlinearmotionsimulated.common.registries.BlockEntityRegistriesCLM;
+import net.cookieg.createlinearmotionsimulated.common.registries.BlockRegistriesCLM;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -53,23 +54,12 @@ public class PneumaticCylinderRodSegmentBlock extends DirectionalBlock implement
     }
 
     @Override
-    protected boolean canBeReplaced(@NotNull BlockState state, @NotNull BlockPlaceContext useContext) {
-        return false;
-    }
-
-    @Override
     public @NotNull VoxelShape getShape(@NotNull BlockState state,
                                         @NotNull BlockGetter level,
                                         @NotNull BlockPos pos,
                                         @NotNull CollisionContext context) {
-        if (!(level.getBlockEntity(pos) instanceof PneumaticCylinderRodSegmentBlockEntity be))
-            return Shapes.empty();
-
-        float amount = be.getLocalExtensionAmount(1.0f);
-        if (amount <= 0.001f)
-            return Shapes.empty();
-
-        return rodShape(state.getValue(FACING), Math.max(0.25f, Math.min(1.0f, amount)));
+        float amount = state.getValue(FULL) ? 1.0f : 0.5f;
+        return rodShape(state.getValue(FACING), amount);
     }
 
     @Override
@@ -77,14 +67,27 @@ public class PneumaticCylinderRodSegmentBlock extends DirectionalBlock implement
                                                  @NotNull BlockGetter level,
                                                  @NotNull BlockPos pos,
                                                  @NotNull CollisionContext context) {
-        if (!(level.getBlockEntity(pos) instanceof PneumaticCylinderRodSegmentBlockEntity be))
-            return Shapes.empty();
+        return Shapes.empty(); // Required to have no block collision otherwise the piston get stuck with itself
+    }
 
-        float amount = be.getLocalExtensionAmount(1.0f);
-        if (amount <= 0.001f)
-            return Shapes.empty();
+    @Override
+    protected @NotNull VoxelShape getBlockSupportShape(@NotNull BlockState state,
+                                                       @NotNull BlockGetter level,
+                                                       @NotNull BlockPos pos) {
+        return Shapes.empty();
+    }
 
-        return rodShape(state.getValue(FACING), Math.min(1.0f, amount));
+    @Override
+    protected @NotNull VoxelShape getVisualShape(@NotNull BlockState state,
+                                                 @NotNull BlockGetter level,
+                                                 @NotNull BlockPos pos,
+                                                 @NotNull CollisionContext context) {
+        return Shapes.empty();
+    }
+
+    @Override
+    protected boolean canBeReplaced(@NotNull BlockState state, @NotNull BlockPlaceContext useContext) {
+        return false;
     }
 
     private static VoxelShape rodShape(Direction facing, float amount) {
@@ -149,7 +152,7 @@ public class PneumaticCylinderRodSegmentBlock extends DirectionalBlock implement
     public @NotNull BlockState playerWillDestroy(Level level, @NotNull BlockPos pos, @NotNull BlockState state, @NotNull Player player) {
         if (!level.isClientSide && level.getBlockEntity(pos) instanceof PneumaticCylinderRodSegmentBlockEntity segmentBE) {
             BlockPos linkedHeadPos = segmentBE.getHeadPos();
-            if (linkedHeadPos != null && level.getBlockState(linkedHeadPos).is(net.cookieg.createlinearmotionsimulated.common.registries.BlockRegistriesCLM.PNEUMATIC_CYLINDER_PISTON_HEAD.get()))
+            if (linkedHeadPos != null && level.getBlockState(linkedHeadPos).is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_PISTON_HEAD.get()))
                 level.destroyBlock(linkedHeadPos, false);
         }
 

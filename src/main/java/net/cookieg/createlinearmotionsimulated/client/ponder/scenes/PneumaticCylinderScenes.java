@@ -5,8 +5,7 @@ import dev.simulated_team.simulated.index.SimItems;
 import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.CylinderPart;
 import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.PneumaticCylinderBlock;
 import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.PneumaticCylinderBlockEntity;
-import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.link_block.PneumaticCylinderPistonHeadBlock;
-import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.rod.PneumaticCylinderRodSegmentBlockEntity;
+import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.rod.PneumaticCylinderRodSegmentBlock;
 import net.cookieg.createlinearmotionsimulated.common.registries.BlockRegistriesCLM;
 import net.createmod.catnip.math.Pointing;
 import net.createmod.ponder.api.PonderPalette;
@@ -21,12 +20,13 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Cat;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 
 public class PneumaticCylinderScenes {
+
+    //TODO : Rework the ponder once the pneumatic cylinder logic has been reworked
 
     public static void setPneumaticCylinderSpeed(final CreateSceneBuilder scene, final SceneBuildingUtil util, final BlockPos pneumaticCylinderPos, final int rpm) {
         scene.world().modifyBlock(pneumaticCylinderPos, s -> s.setValue(PneumaticCylinderBlock.ASSEMBLED, true), false);
@@ -36,6 +36,9 @@ public class PneumaticCylinderScenes {
         });
     }
 
+    /**
+     * Pneumatic cylinder basic usage tutorial
+     */
     public static void basicUsage(SceneBuilder builder, SceneBuildingUtil util) {
         final CreateSceneBuilder scene = new CreateSceneBuilder(builder);
         final CreateSceneBuilder.WorldInstructions world = scene.world();
@@ -70,8 +73,6 @@ public class PneumaticCylinderScenes {
         scene.showBasePlate();
         scene.setSceneOffsetY(-1f);
         world.showSection(select.position(5, 0, 2), Direction.UP);
-
-        //TODO : Display the shaft part here before the rest
 
         scene.idle(10);
         world.showSection(cogs, Direction.DOWN);
@@ -262,6 +263,9 @@ public class PneumaticCylinderScenes {
         scene.markAsFinished();
     }
 
+    /**
+     * Pneumatic cylinder multiblock construction tutorial
+     */
     public static void multiBlock(SceneBuilder builder, SceneBuildingUtil util) {
         final CreateSceneBuilder scene = new CreateSceneBuilder(builder);
         final CreateSceneBuilder.WorldInstructions world = scene.world();
@@ -284,13 +288,10 @@ public class PneumaticCylinderScenes {
 
         // Update each segments in the piston to force them to be fully rendered
         for (int i = 0; i < pistonLength; i++) {
-            world.modifyBlockEntity(
+            world.modifyBlock(
                     new BlockPos(pistonHead.getX(), pistonHead.getY(), pistonHead.getZ() + i + 1),
-                    PneumaticCylinderRodSegmentBlockEntity.class,
-                    be -> {
-                        be.setIndexBehindHead(1);
-                        be.setForceFullRender(true);
-                    }
+                    blockState -> blockState.setValue(PneumaticCylinderRodSegmentBlock.FULL, true),
+                    false
             );
         }
 

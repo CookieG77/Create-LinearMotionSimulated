@@ -3,12 +3,9 @@ package net.cookieg.createlinearmotionsimulated.client;
 import net.cookieg.createlinearmotionsimulated.client.ponder.CLMPonderPlugin;
 import net.cookieg.createlinearmotionsimulated.common.CreateLinearMotionSimulated;
 import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.PneumaticCylinderRenderer;
-import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.link_block.PneumaticCylinderPistonHeadRenderer;
-import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.rod.PneumaticCylinderRodSegmentRenderer;
 import net.cookieg.createlinearmotionsimulated.common.registries.BlockEntityRegistriesCLM;
 import net.cookieg.createlinearmotionsimulated.common.registries.PartialModelRegistriesCLM;
 import net.createmod.ponder.foundation.PonderIndex;
-import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
@@ -40,21 +37,12 @@ public class CreateLinearMotionSimulatedClient {
         PonderIndex.addPlugin(new CLMPonderPlugin());
     }
 
+    /// Registering custom block entity renderers
     @SubscribeEvent
     static void registerBlockEntityRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(
                 BlockEntityRegistriesCLM.PNEUMATIC_CYLINDER.get(),
                 PneumaticCylinderRenderer::new
-        );
-
-        event.registerBlockEntityRenderer(
-                BlockEntityRegistriesCLM.PNEUMATIC_CYLINDER_PISTON_HEAD.get(),
-                PneumaticCylinderPistonHeadRenderer::new
-        );
-
-        event.registerBlockEntityRenderer(
-                BlockEntityRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get(),
-                PneumaticCylinderRodSegmentRenderer::new
         );
     }
 }

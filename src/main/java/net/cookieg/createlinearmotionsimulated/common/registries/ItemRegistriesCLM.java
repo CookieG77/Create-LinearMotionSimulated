@@ -2,7 +2,6 @@ package net.cookieg.createlinearmotionsimulated.common.registries;
 
 import net.cookieg.createlinearmotionsimulated.common.CreateLinearMotionSimulated;
 import net.cookieg.createlinearmotionsimulated.common.content.items.block_items.PneumaticCylinderBlockItem;
-import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredHolder;

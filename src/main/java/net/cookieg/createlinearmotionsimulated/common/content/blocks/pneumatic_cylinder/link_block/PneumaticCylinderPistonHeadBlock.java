@@ -3,40 +3,41 @@ package net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_
 import com.mojang.serialization.MapCodec;
 import com.simibubi.create.foundation.block.IBE;
 import dev.ryanhcode.sable.api.block.BlockSubLevelAssemblyListener;
+import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.PneumaticCylinderBlockEntity;
 import net.cookieg.createlinearmotionsimulated.common.registries.BlockEntityRegistriesCLM;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.DirectionalBlock;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
-import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.PneumaticCylinderBlockEntity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.ItemInteractionResult;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
 
 public class PneumaticCylinderPistonHeadBlock extends DirectionalBlock implements IBE<PneumaticCylinderPistonHeadBlockEntity>, BlockSubLevelAssemblyListener {
 
     public static final MapCodec<PneumaticCylinderPistonHeadBlock> CODEC =
             simpleCodec(PneumaticCylinderPistonHeadBlock::new);
 
+    // Used to render either the piston with half his rod or the entier rod
     public static final BooleanProperty FULL = BooleanProperty.create("full");
 
-    private static final int HEAD_PIXELS = 3;
+    // Must be the size in pixel in a 16x16 resolution block
+    public static final int HEAD_PIXELS = 3;
 
     public PneumaticCylinderPistonHeadBlock(Properties properties) {
         super(properties);
@@ -111,15 +112,7 @@ public class PneumaticCylinderPistonHeadBlock extends DirectionalBlock implement
                                                  @NotNull BlockGetter level,
                                                  @NotNull BlockPos pos,
                                                  @NotNull CollisionContext context) {
-        Direction facing = state.getValue(FACING);
-        VoxelShape shape = headShape(facing);
-
-        if (level.getBlockEntity(pos) instanceof PneumaticCylinderPistonHeadBlockEntity headBE) {
-            float localAmount = Math.min(1.0f, 0.5f + headBE.getExtension());
-            shape = Shapes.or(shape, headRodShape(facing, localAmount));
-        }
-
-        return shape;
+        return headShape(state.getValue(FACING));
     }
 
     private static VoxelShape headShape(Direction facing) {
@@ -218,22 +211,9 @@ public class PneumaticCylinderPistonHeadBlock extends DirectionalBlock implement
                                                        @NotNull Player player,
                                                        @NotNull InteractionHand hand,
                                                        @NotNull BlockHitResult hitResult) {
-        /*
-         * Only empty-hand interaction is allowed to toggle/disassemble the cylinder.
-         * With an item or block in hand, do not call the head logic.
-         */
         if (stack.isEmpty())
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
 
-        /*
-         * With a block item, let Minecraft try placement.
-         */
-        if (stack.getItem() instanceof BlockItem)
-            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
-
-        /*
-         * With any other item, let the item handle its own action.
-         */
         return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
     }
 }

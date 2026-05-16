@@ -1,19 +1,19 @@
 {
     "variants": {
         "facing=up,full=false": {
-            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_half",
-            "x": 180
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_half"
         },
         "facing=up,full=true": {
-            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_full",
-            "x": 180
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_full"
         },
 
         "facing=down,full=false": {
-            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_half"
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_half",
+            "x": 180
         },
         "facing=down,full=true": {
-            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_full"
+            "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_full",
+            "x": 180
         },
 
         "facing=north,full=false": {
@@ -37,23 +37,23 @@
         "facing=east,full=false": {
             "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_half",
             "x": 90,
-            "y": 270
+            "y": 90
         },
         "facing=east,full=true": {
             "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_full",
             "x": 90,
-            "y": 270
+            "y": 90
         },
 
         "facing=west,full=false": {
             "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_half",
             "x": 90,
-            "y": 90
+            "y": 270
         },
         "facing=west,full=true": {
             "model": "create_linear_motion_simulated:block/pneumatic_cylinder/rod/rod_full",
             "x": 90,
-            "y": 90
+            "y": 270
         }
     }
 }

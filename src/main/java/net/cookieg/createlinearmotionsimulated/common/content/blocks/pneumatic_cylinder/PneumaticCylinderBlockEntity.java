@@ -7,7 +7,6 @@ import com.simibubi.create.content.kinetics.base.IRotate;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntityRenderer;
 import com.simibubi.create.foundation.blockEntity.IMultiBlockEntityContainer;
-import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 import com.simibubi.create.foundation.utility.CreateLang;
 import dev.ryanhcode.sable.Sable;
 import dev.ryanhcode.sable.api.block.BlockEntitySubLevelActor;
@@ -36,7 +35,6 @@ import net.minecraft.nbt.NbtUtils;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Rotation;
@@ -44,7 +42,6 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaterniond;
 import org.joml.Vector3d;
@@ -53,9 +50,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
-import static net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.link_block.PneumaticCylinderPistonHeadBlockEntity.BASE_VISIBLE_ROD;
 import static net.cookieg.createlinearmotionsimulated.common.registries.StressRegistriesCLM.PNEUMATIC_CYLINDER_STRESS_IMPACT;
 
 public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements IHaveGoggleInformation, IMultiBlockEntityContainer, BlockEntitySubLevelActor {
@@ -63,35 +58,13 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     private static final int MAX_WIDTH = 1;
     private static final int MAX_LENGTH = 16;
 
+    // Motor settings
     private static final double PISTON_MOTOR_STIFFNESS = 4500.0;
     private static final double PISTON_MOTOR_DAMPING = 900.0;
     private static final double PISTON_MOTOR_MAX_IMPULSE = 0.0;
     private static final double PISTON_HEAD_ZERO_OFFSET_BLOCKS = 0.0;
 
-    private static final float ROD_VISUAL_EPSILON = 0.001f;
-
-    /*
-     * Visual delay used because the physics motor eases/smooths the real motion.
-     * Lower = more delayed visual rods.
-     * Higher = closer to the logical extension.
-     */
-    private static final float ROD_VISUAL_FOLLOW_FACTOR = 0.55f;
-
-    /*
-     * Prevent the visual from getting stuck when RPM is very low or zero.
-     */
-    private static final float ROD_VISUAL_MIN_STEP = 1f / 32f;
-
-    /*
-     * The head block itself is responsible for the first 2 half-units:
-     *   1 half-unit  -> head_half
-     *   2 half-units -> head_full
-     *
-     * Rod segment blocks start after that.
-     */
-    private static final int HEAD_ROD_HALF_UNITS = 2;
-
-    private static final float ROD_VISUAL_INSET = 4f / 16f;
+    private static final float PISTON_MAX_SPEED = 4f / 20f; // 4 block per seconds
 
     protected BlockPos controller;
     protected BlockPos lastKnownPos;
@@ -108,22 +81,9 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
     @Nullable
     protected AssemblyException lastAssemblyException;
-    /**
-     * True while Sable is moving this block into/out of a sublevel.
-     * Same purpose as SwivelBearingBlockEntity#assembling.
-     */
     protected boolean assembling;
-    /**
-     * Delayed rebuild after Sable moved this cylinder block.
-     * We wait a few ticks because all blocks / sublevels may not be fully relinked
-     * in the same tick as afterMove(...).
-     */
     protected int subLevelMoveRebuildDelay;
 
-    /**
-     * Saved mobile head data while Create connectivity is being rebuilt.
-     * Only useful for the block that still knows about the attached head.
-     */
     @Nullable
     protected BlockPos pendingMovedHeadPos;
 
@@ -144,8 +104,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     protected float extension;
     protected float prevExtension;
     protected float targetExtension;
-    protected float rodVisualExtension;
-    protected float prevRodVisualExtension;
 
     protected int redstonePower;
     protected int previousRedstonePower;
@@ -190,7 +148,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         }
 
         prevExtension = extension;
-        prevRodVisualExtension = rodVisualExtension;
 
         if (!level.isClientSide) {
             if (updateConnectivity)
@@ -286,14 +243,12 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             targetExtension = powered && hasRotation && assembled ? getMaxExtension() : 0;
 
         float speed = disassembleRequested
-                ? getForcedReturnSpeedBlocksPerTick()
+                ? PISTON_MAX_SPEED
                 : getLinearSpeedBlocksPerTick();
 
         if (speed <= 0.0001f) {
             if (assembled) {
-                updateRodVisualExtension();
-                syncHeadActorData();
-                syncRodSegments();
+                syncRodRendering();
                 updateAttachedHeadConstraint(extension);
             }
 
@@ -310,9 +265,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             extension = Math.max(targetExtension, extension - speed);
 
         if (assembled) {
-            updateRodVisualExtension();
-            syncHeadActorData();
-            syncRodSegments();
+            syncRodRendering();
             updateAttachedHeadConstraint(extension);
         }
 
@@ -323,8 +276,11 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             return;
         }
 
-        if (extension != previous)
-            onExtensionChanged(previous, extension);
+        if (extension != previous && assembled) {
+            syncRodRendering();
+            updateAttachedHeadConstraint(extension);
+        }
+
 
         setChanged();
         sendData();
@@ -434,11 +390,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             return;
         }
 
-        if (!(result.subLevel() instanceof ServerSubLevel assembledSubLevel)) {
-            setChanged();
-            sendData();
-            return;
-        }
+        ServerSubLevel assembledSubLevel = (ServerSubLevel) result.subLevel();
 
         BlockEntity assembledBE = level.getBlockEntity(assembledHeadPos);
         if (assembledBE instanceof PneumaticCylinderPistonHeadBlockEntity headBE) {
@@ -453,14 +405,11 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         extension = 0;
         prevExtension = 0;
         targetExtension = 0;
-        rodVisualExtension = 0;
-        prevRodVisualExtension = 0;
 
         createAttachedHeadConstraint(assembledSubLevel, assembledHeadPos);
 
         updateAllPartStates();
-        syncHeadActorData();
-        syncRodSegments();
+        syncRodRendering();
         updateAttachedHeadConstraint(0);
 
         setChanged();
@@ -490,8 +439,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         extension = 0;
         prevExtension = 0;
         targetExtension = 0;
-        rodVisualExtension = 0;
-        prevRodVisualExtension = 0;
         disassembleRequested = false;
 
         updateAllPartStates();
@@ -666,8 +613,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         extension = 0;
         prevExtension = 0;
         targetExtension = 0;
-        rodVisualExtension = 0;
-        prevRodVisualExtension = 0;
 
         redstonePower = 0;
         previousRedstonePower = 0;
@@ -830,10 +775,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         extension = compound.getFloat("Extension");
         prevExtension = extension;
         targetExtension = compound.getFloat("TargetExtension");
-        rodVisualExtension = compound.contains("RodVisualExtension")
-                ? compound.getFloat("RodVisualExtension")
-                : extension;
-        prevRodVisualExtension = rodVisualExtension;
         redstonePower = compound.getInt("RedstonePower");
         previousRedstonePower = compound.getInt("PreviousRedstonePower");
         stableRedstonePower = compound.contains("StableRedstonePower")
@@ -858,7 +799,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             compound.put("Controller", NbtUtils.writeBlockPos(controller));
 
         if (isController()) {
-            compound.putFloat("RodVisualExtension", rodVisualExtension);
             compound.putInt("Size", width);
             compound.putInt("Height", height);
             compound.putBoolean("Assembled", assembled);
@@ -895,7 +835,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             compound.putBoolean("Assembled", assembled);
             compound.putBoolean("ShaftInstalled", shaftInstalled);
             compound.putInt("RedstonePower", redstonePower);
-            compound.putFloat("RodVisualExtension", rodVisualExtension);
         }
 
         super.writeSafe(compound, registries);
@@ -1036,22 +975,13 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         return Math.abs(getInputSpeed()) > 0.001f;
     }
 
+    /**
+     * Return the current cylinder head speed per tick based on the given rpm and max speed
+     * @return The head speed per tick
+     */
     private float getLinearSpeedBlocksPerTick() {
         float rpm = Math.abs(getInputSpeed());
-        return (rpm / 256f) * (2f / 20f);
-    }
-
-    private float getForcedReturnSpeedBlocksPerTick() {
-        return 2f / 20f;
-    }
-
-    private void onExtensionChanged(float oldExtension, float newExtension) {
-        if (!assembled)
-            return;
-
-        syncHeadActorData();
-        syncRodSegments();
-        updateAttachedHeadConstraint(newExtension);
+        return (rpm / 256f) * PISTON_MAX_SPEED;
     }
 
     private int computeRedstonePower() {
@@ -1104,21 +1034,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         level.setBlock(pistonHeadPos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
     }
 
-    @Override
-    public @Nullable Iterable<@NotNull SubLevel> sable$getConnectionDependencies() {
-        /*
-         * Important:
-         * The cylinder body/controller must NOT declare the piston head sublevel as
-         * a connection dependency.
-         *
-         * Swivel Bearing does it the other way around:
-         * the moving link/plate depends on its parent, not the parent on the moving
-         * link. If the controller depends on the head, Sable can keep the head
-         * sublevel anchored when the body is assembled into another sublevel.
-         */
-        return null;
-    }
-
     public BlockPos getFrontBlockPos() {
         PneumaticCylinderBlockEntity controllerBE = getControllerBE();
         if (controllerBE == null)
@@ -1128,126 +1043,13 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         return back.relative(controllerBE.getFacing(), controllerBE.height - 1);
     }
 
-    public BlockPos getHeadZeroWorldPos() {
-        return getFrontBlockPos();
-    }
-
-    private void syncHeadActorData() {
-        if (level == null || pistonHeadPos == null)
-            return;
-
-        BlockEntity be = level.getBlockEntity(pistonHeadPos);
-        if (be instanceof PneumaticCylinderPistonHeadBlockEntity headBE) {
-            headBE.setExtensionData(getRodVisualExtension(), getMaxExtension());
-        }
-    }
-
-    private void syncRodSegments() {
-        if (level == null || level.isClientSide || pistonHeadPos == null)
-            return;
-
-        Direction facing = getFacing();
-        Direction back = facing.getOpposite();
-
-        float visualExtension = getRodVisualExtension();
-
-        float visibleRodLength = Math.max(0, visualExtension + BASE_VISIBLE_ROD - ROD_VISUAL_INSET);
-        int totalHalfUnits = Math.max(0, (int) Math.floor((visibleRodLength + ROD_VISUAL_EPSILON) * 2.0f));
-
-        /*
-         * The head model consumes the first two half-units.
-         * Remaining half-units are represented by rod segment blocks.
-         */
-        int rodHalfUnits = Math.max(0, totalHalfUnits - HEAD_ROD_HALF_UNITS);
-
-        /*
-         * +1 because a half segment may exist at the end.
-         * Also +1 safety to remove stale rods if constants/model logic changed.
-         */
-        int maxSegments = Math.max(1, (int) Math.ceil(getMaxExtension() + BASE_VISIBLE_ROD) + 1);
-
-        for (int i = 1; i <= maxSegments; i++) {
-            BlockPos segmentPos = pistonHeadPos.relative(back, i);
-            BlockState currentState = level.getBlockState(segmentPos);
-
-            /*
-             * Segment i consumes two half-units:
-             *   i = 1 -> half-units 1 and 2 after the head
-             *   i = 2 -> half-units 3 and 4 after the head
-             */
-            int segmentStartHalfUnit = (i - 1) * 2;
-            int segmentHalfUnits = Math.max(0, Math.min(2, rodHalfUnits - segmentStartHalfUnit));
-
-            boolean shouldExist = segmentHalfUnits > 0;
-            boolean full = segmentHalfUnits >= 2;
-
-            /*
-             * Never replace the cylinder body. If a segment would overlap the body,
-             * it must simply not exist.
-             */
-            if (currentState.is(BlockRegistriesCLM.PNEUMATIC_CYLINDER.get()))
-                shouldExist = false;
-
-            if (shouldExist) {
-                BlockState segmentState = BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get()
-                        .defaultBlockState()
-                        .setValue(PneumaticCylinderRodSegmentBlock.FACING, facing)
-                        .setValue(PneumaticCylinderRodSegmentBlock.FULL, full);
-
-                if (!currentState.is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get())) {
-                    if (!currentState.canBeReplaced())
-                        continue;
-
-                    level.setBlock(segmentPos, segmentState, Block.UPDATE_ALL);
-                } else if (currentState.getValue(PneumaticCylinderRodSegmentBlock.FACING) != facing
-                        || currentState.getValue(PneumaticCylinderRodSegmentBlock.FULL) != full) {
-                    level.setBlock(segmentPos, segmentState, Block.UPDATE_ALL);
-                }
-
-                BlockEntity be = level.getBlockEntity(segmentPos);
-                if (be instanceof PneumaticCylinderRodSegmentBlockEntity segmentBE) {
-                    segmentBE.setHead(pistonHeadPos);
-                    segmentBE.setIndexBehindHead(i);
-                    segmentBE.setAssembling(false);
-                    segmentBE.setForceFullRender(false);
-
-                    /*
-                     * Send the quantized visible amount for selection/collision.
-                     * 0.5 for rod_half, 1.0 for rod_full.
-                     */
-                    float quantizedLocalAmount = segmentHalfUnits * 0.5f;
-                    segmentBE.setExtensionData(quantizedLocalAmount, quantizedLocalAmount, 1.0f);
-                }
-
-                BlockState updatedState = level.getBlockState(segmentPos);
-                level.sendBlockUpdated(segmentPos, updatedState, updatedState, Block.UPDATE_CLIENTS);
-            } else {
-                BlockEntity be = level.getBlockEntity(segmentPos);
-                if (be instanceof PneumaticCylinderRodSegmentBlockEntity segmentBE) {
-                    segmentBE.setAssembling(true);
-                    segmentBE.setForceFullRender(false);
-                }
-
-                if (currentState.is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get()))
-                    level.setBlock(segmentPos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
-            }
-        }
-    }
-
-    private float getVisualExtension() {
-        return clampExtension(extension);
-    }
-
-    private float clampExtension(float value) {
-        return Math.max(0, Math.min(getMaxExtension(), value));
-    }
 
     private void destroyRodSegments() {
         if (level == null || pistonHeadPos == null)
             return;
 
         Direction back = getFacing().getOpposite();
-        int maxSegments = Math.max(1, (int) Math.ceil(getMaxExtension() + BASE_VISIBLE_ROD) + 1);
+        int maxSegments = getMaxRodSegmentCount();
 
         for (int i = 1; i <= maxSegments; i++) {
             BlockPos segmentPos = pistonHeadPos.relative(back, i);
@@ -1280,9 +1082,14 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
                 ? serverSubLevel
                 : null;
 
+        BlockPos front = getFrontBlockPos();
         Direction facing = getFacing();
 
-        Vector3d frame1Pos = getConstraintBaseFramePosition(0);
+        Vector3d frame1Pos = new Vector3d(
+                front.getX() + 0.5,
+                front.getY() + 0.5,
+                front.getZ() + 0.5
+        );
 
         Vector3d frame2Pos = new Vector3d(
                 assembledHeadPos.getX() + 0.5,
@@ -1290,13 +1097,11 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
                 assembledHeadPos.getZ() + 0.5
         );
 
-        Quaterniond frameOrientation = orientationForFacing(facing);
-
         GenericConstraintConfiguration config = new GenericConstraintConfiguration(
                 frame1Pos,
                 frame2Pos,
-                frameOrientation,
-                frameOrientation,
+                new Quaterniond(),
+                new Quaterniond(),
                 getLockedConstraintAxes()
         );
 
@@ -1311,40 +1116,16 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         pipeline.wakeUp(headSubLevel);
     }
 
-    private Vector3d getConstraintBaseFramePosition(float ignoredExtension) {
-        BlockPos front = getFrontBlockPos();
-
-        return new Vector3d(
-                front.getX() + 0.5,
-                front.getY() + 0.5,
-                front.getZ() + 0.5
-        );
-    }
-
     private double getSignedPistonMotorTarget(float extension) {
-        double distance = PISTON_HEAD_ZERO_OFFSET_BLOCKS + clampExtension(extension);
-
-        /*
-         * Since orientationForFacing(...) currently returns identity, LINEAR_X/Y/Z
-         * are effectively world-axis based. Negative-facing cylinders must therefore
-         * use a negative motor target.
-         */
+        double distance = PISTON_HEAD_ZERO_OFFSET_BLOCKS + Mth.clamp(extension, 0, getMaxExtension());
         return getFacing().getAxisDirection() == Direction.AxisDirection.NEGATIVE
                 ? -distance
                 : distance;
     }
 
-    private Quaterniond orientationForFacing(Direction facing) {
-        return new Quaterniond();
-    }
-
     private Set<ConstraintJointAxis> getLockedConstraintAxes() {
         EnumSet<ConstraintJointAxis> axes = EnumSet.allOf(ConstraintJointAxis.class);
 
-        /*
-         * Leave the piston translation axis free.
-         * It will be driven with setMotor(...).
-         */
         axes.remove(getLinearConstraintAxis());
 
         return axes;
@@ -1357,7 +1138,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         if (pistonConstraint == null || !pistonConstraint.isValid())
             return;
 
-        float clampedExtension = clampExtension(requestedExtension);
+        float clampedExtension = Mth.clamp(requestedExtension, 0, getMaxExtension());
         if (!Float.isFinite(clampedExtension))
             return;
 
@@ -1372,8 +1153,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
                 PISTON_MOTOR_MAX_IMPULSE
         );
 
-        ServerSubLevelContainer container =
-                (ServerSubLevelContainer) SubLevelContainer.getContainer(serverLevel);
+        ServerSubLevelContainer container = SubLevelContainer.getContainer(serverLevel);
 
         if (container == null)
             return;
@@ -1446,8 +1226,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         extension = 0;
         prevExtension = 0;
         targetExtension = 0;
-        rodVisualExtension = 0;
-        prevRodVisualExtension = 0;
         assembleRequested = false;
         disassembleRequested = false;
 
@@ -1480,8 +1258,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         extension = 0;
         prevExtension = 0;
         targetExtension = 0;
-        rodVisualExtension = 0;
-        prevRodVisualExtension = 0;
         redstoneResetRequired = false;
 
         setChanged();
@@ -1505,8 +1281,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
         createAttachedHeadConstraint(headSubLevel, pistonHeadPos);
         updateAttachedHeadConstraint(extension);
-        syncHeadActorData();
-        syncRodSegments();
+        syncRodRendering();
 
         rebuildConstraintOnLoad = false;
 
@@ -1549,37 +1324,11 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
                 controllerBE.removeShaft();
             return;
         }
-
-        /*
-         * Temporarily disabled. The cylinder must remain shaft-driven until Sable
-         * exposes a stable limited prismatic constraint API for the free mode.
-         *
-         * Future restore point:
-         *   shaftInstalled = false;
-         *   shaftPos = null;
-         *   redstonePower = 0;
-         *   previousRedstonePower = 0;
-         *   stableRedstonePower = 0;
-         *   redstoneChangePending = false;
-         *   updateAllPartStates();
-         *   setChanged();
-         *   sendData();
-         */
     }
 
     public void beforeAssembly() {
         this.assembling = true;
 
-        /*
-         * Critical:
-         * If this block is not the controller, forward the move notification to the
-         * controller while the old multiblock links still exist.
-         *
-         * Sable may call beforeMove(...) on any cylinder part. If the old controller
-         * keeps its constraint alive while the body is being assembled into another
-         * sublevel, the piston head sublevel can remain anchored at the old world
-         * position.
-         */
         PneumaticCylinderBlockEntity controllerBE = getControllerBE();
 
         if (controllerBE != null && controllerBE != this) {
@@ -1596,24 +1345,8 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     }
 
     public void afterMovedBySubLevel() {
-        /*
-         * Sable finished moving this block. Do not immediately reattach the
-         * constraint here: the other blocks and the head sublevel may still be
-         * finishing their move during this same tick.
-         */
         this.assembling = false;
         this.lastKnownPos = worldPosition;
-
-        /*
-         * Do not overwrite pendingMovedHeadPos here.
-         * It was captured in beforeControllerSubLevelMove(), while the old
-         * controller/head links were still reliable.
-         */
-
-        /*
-         * After Sable moves blocks, absolute controller references can be stale.
-         * Do NOT call removeController(), because that wipes the piston state.
-         */
         this.controller = null;
         this.width = 1;
         this.height = 1;
@@ -1641,11 +1374,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
 
         BlockEntity be = level.getBlockEntity(pistonHeadPos);
         if (be instanceof PneumaticCylinderPistonHeadBlockEntity headBE) {
-            /*
-             * Rewrites parent + parentSubLevelId from the current controller.
-             * After the body is assembled into a sublevel, Sable.HELPER.getContaining(this)
-             * should now point to the new body sublevel.
-             */
             headBE.setParent(this);
         }
     }
@@ -1665,9 +1393,6 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         this.pistonHeadSubLevelId = headSubLevelId;
         this.assembled = headPos != null && headSubLevelId != null;
 
-        /*
-         * The head was moved/relinked, so the old constraint must not be trusted.
-         */
         destroyAttachedHeadConstraint();
 
         if (!this.assembled) {
@@ -1682,8 +1407,7 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
             rebuildConstraintOnLoad = true;
             rebuildAttachedHeadConstraint();
             updateAttachedHeadConstraint(extension);
-            syncHeadActorData();
-            syncRodSegments();
+            syncRodRendering();
         }
 
         updateAllPartStates();
@@ -1696,20 +1420,12 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         if (level == null || level.isClientSide)
             return;
 
-        /*
-         * Rebuild the static Create multiblock.
-         */
         ConnectivityHandler.formMulti(this);
 
         PneumaticCylinderBlockEntity controllerBE = getControllerBE();
         if (controllerBE == null)
             controllerBE = this;
 
-        /*
-         * If any moved part still has the saved head state, transfer it to the
-         * rebuilt controller. This is needed because ConnectivityHandler may choose
-         * or reconfirm a controller after the move.
-         */
         if (pendingMovedAssembled && pendingMovedHeadPos != null && pendingMovedHeadSubLevelId != null) {
             controllerBE.pistonHeadPos = pendingMovedHeadPos;
             controllerBE.pistonHeadSubLevelId = pendingMovedHeadSubLevelId;
@@ -1728,23 +1444,12 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         if (controllerBE.isController()) {
             controllerBE.updateAllPartStates();
 
-            /*
-             * Refresh the head's parentSubLevelId now that the body is inside its
-             * new containing sublevel.
-             */
             controllerBE.associateHeadWithParent();
 
-            /*
-             * Force a new constraint. The old one was intentionally removed before
-             * the move, so this one should bind:
-             *   new body sublevel -> existing piston head sublevel
-             */
             controllerBE.destroyAttachedHeadConstraint();
             controllerBE.rebuildAttachedHeadConstraint();
             controllerBE.updateAttachedHeadConstraint(controllerBE.extension);
-
-            controllerBE.syncHeadActorData();
-            controllerBE.syncRodSegments();
+            controllerBE.syncRodRendering();
 
             controllerBE.setChanged();
             controllerBE.sendData();
@@ -1757,24 +1462,11 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
     private void beforeControllerSubLevelMove() {
         this.assembling = true;
 
-        /*
-         * Save the mobile head state before Sable starts moving the body.
-         * afterMovedBySubLevel()/rebuildAfterSubLevelMove() will restore this on the
-         * rebuilt controller.
-         */
         this.pendingMovedHeadPos = this.pistonHeadPos;
         this.pendingMovedHeadSubLevelId = this.pistonHeadSubLevelId;
         this.pendingMovedAssembled = this.assembled;
         this.pendingMovedExtension = this.extension;
 
-        /*
-         * This is the important part.
-         *
-         * The old constraint may still be valid but bound to the old containing
-         * sublevel, or to the world/null body if the cylinder body was not already
-         * in a sublevel. Keeping it alive during Sable's move can pin the piston
-         * head sublevel in place.
-         */
         destroyAttachedHeadConstraint();
 
         rebuildConstraintOnLoad = true;
@@ -1800,54 +1492,95 @@ public class PneumaticCylinderBlockEntity extends KineticBlockEntity implements 
         updateAttachedHeadConstraint(extension);
     }
 
-    public float getStressImpact() {
+    @Override
+    public float calculateStressApplied() {
         return (float) PNEUMATIC_CYLINDER_STRESS_IMPACT;
     }
 
-    public float getCurrentStressImpact() {
-        return Math.abs(getInputSpeed()) * getStressImpact();
-    }
-
-    @Override
-    public float calculateStressApplied() {
-        /*
-         * Create stress convention:
-         * stress = impact * abs(RPM)
-         *
-         * With impact = 4:
-         * 256 RPM -> 1024 SU
-         */
-        return getStressImpact();
-    }
-
-    private void updateRodVisualExtension() {
-        float target = clampExtension(extension);
-
-        if (!assembled || pistonHeadPos == null) {
-            rodVisualExtension = target;
-            prevRodVisualExtension = target;
+    private void syncRodRendering() {
+        if (level == null || !assembled || pistonHeadPos == null)
             return;
-        }
 
-        float baseSpeed = disassembleRequested
-                ? getForcedReturnSpeedBlocksPerTick()
-                : getLinearSpeedBlocksPerTick();
+        float adjustedDistance = getAdjustedRodDistance();
 
-        /*
-         * We intentionally make the visual follow slightly slower than the logical
-         * extension, because the physical motor does not move instantly.
-         */
-        float maxStep = Math.max(ROD_VISUAL_MIN_STEP, baseSpeed * ROD_VISUAL_FOLLOW_FACTOR);
-
-        if (rodVisualExtension < target)
-            rodVisualExtension = Math.min(target, rodVisualExtension + maxStep);
-        else if (rodVisualExtension > target)
-            rodVisualExtension = Math.max(target, rodVisualExtension - maxStep);
-
-        rodVisualExtension = clampExtension(rodVisualExtension);
+        syncHeadActorData(adjustedDistance);
+        syncRodSegments(adjustedDistance);
     }
 
-    private float getRodVisualExtension() {
-        return clampExtension(rodVisualExtension);
+    private float getAdjustedRodDistance() {
+        return getRealPistonDistance() + PneumaticCylinderPistonHeadBlock.HEAD_PIXELS / 16f;
+    }
+
+    private float getRealPistonDistance() {
+        return Mth.clamp(extension, 0, getMaxExtension());
+    }
+
+    private void syncHeadActorData(float adjustedDistance) {
+        if (level == null || pistonHeadPos == null)
+            return;
+
+        BlockEntity be = level.getBlockEntity(pistonHeadPos);
+        if (be instanceof PneumaticCylinderPistonHeadBlockEntity headBE)
+            headBE.updateRodDisplay(adjustedDistance);
+    }
+
+    private void syncRodSegments(float adjustedDistance) {
+        if (level == null || level.isClientSide || pistonHeadPos == null)
+            return;
+
+        Direction facing = getFacing();
+        Direction back = facing.getOpposite();
+
+        int maxSegments = getMaxRodSegmentCount();
+
+        for (int i = 1; i <= maxSegments; i++) {
+            BlockPos segmentPos = pistonHeadPos.relative(back, i);
+            BlockState currentState = level.getBlockState(segmentPos);
+
+            boolean shouldExist = PneumaticCylinderRodSegmentBlockEntity.shouldRender(adjustedDistance, i);
+            boolean full = PneumaticCylinderRodSegmentBlockEntity.shouldRenderFull(adjustedDistance, i);
+
+            if (currentState.is(BlockRegistriesCLM.PNEUMATIC_CYLINDER.get()))
+                shouldExist = false;
+
+            if (!shouldExist) {
+                BlockEntity be = level.getBlockEntity(segmentPos);
+                if (be instanceof PneumaticCylinderRodSegmentBlockEntity segmentBE)
+                    segmentBE.setAssembling(true);
+
+                if (currentState.is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get()))
+                    level.setBlock(segmentPos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+
+                continue;
+            }
+
+            BlockState segmentState = BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get()
+                    .defaultBlockState()
+                    .setValue(PneumaticCylinderRodSegmentBlock.FACING, facing)
+                    .setValue(PneumaticCylinderRodSegmentBlock.FULL, full);
+
+            if (!currentState.is(BlockRegistriesCLM.PNEUMATIC_CYLINDER_ROD_SEGMENT.get())) {
+                if (!currentState.canBeReplaced())
+                    continue;
+
+                level.setBlock(segmentPos, segmentState, Block.UPDATE_ALL);
+            } else if (currentState.getValue(PneumaticCylinderRodSegmentBlock.FACING) != facing
+                    || currentState.getValue(PneumaticCylinderRodSegmentBlock.FULL) != full) {
+                level.setBlock(segmentPos, segmentState, Block.UPDATE_ALL);
+            }
+
+            BlockEntity be = level.getBlockEntity(segmentPos);
+            if (be instanceof PneumaticCylinderRodSegmentBlockEntity segmentBE) {
+                segmentBE.setHead(pistonHeadPos);
+                segmentBE.setIndexBehindHead(i);
+                segmentBE.setAssembling(false);
+                segmentBE.updateRodDisplay(adjustedDistance);
+            }
+        }
+    }
+
+    private int getMaxRodSegmentCount() {
+        float maxDistance = getMaxExtension() + PneumaticCylinderPistonHeadBlock.HEAD_PIXELS / 16f;
+        return Math.max(2, (int) Math.ceil(maxDistance + 2.0f));
     }
 }

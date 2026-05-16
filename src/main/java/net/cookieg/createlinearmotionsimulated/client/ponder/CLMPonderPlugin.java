@@ -7,6 +7,8 @@ import net.createmod.ponder.api.registration.PonderTagRegistrationHelper;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.NotNull;
 
+/// Ponder plugin for Create Linear Motion Simulated<br>
+/// Required to register our ponders
 public class CLMPonderPlugin implements PonderPlugin {
 
     @Override

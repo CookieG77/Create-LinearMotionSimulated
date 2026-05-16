@@ -7,6 +7,7 @@ import net.minecraft.resources.ResourceLocation;
 
 public class CLMPonderScenes {
 
+    /// Registering our ponders scenes
     public static void register(PonderSceneRegistrationHelper<ResourceLocation> helper) {
         helper.forComponents(BlockRegistriesCLM.PNEUMATIC_CYLINDER.getId())
                 .addStoryBoard(

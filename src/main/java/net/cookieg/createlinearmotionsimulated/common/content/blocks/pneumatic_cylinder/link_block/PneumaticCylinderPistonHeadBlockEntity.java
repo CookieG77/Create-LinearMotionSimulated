@@ -10,35 +10,26 @@ import dev.ryanhcode.sable.sublevel.ServerSubLevel;
 import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.PneumaticCylinderBlockEntity;
 import net.cookieg.createlinearmotionsimulated.common.registries.BlockEntityRegistriesCLM;
-import net.cookieg.createlinearmotionsimulated.common.registries.BlockRegistriesCLM;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
 import java.util.UUID;
-import net.minecraft.world.level.block.Block;
+
+import static net.cookieg.createlinearmotionsimulated.common.content.blocks.pneumatic_cylinder.link_block.PneumaticCylinderPistonHeadBlock.HEAD_PIXELS;
 
 public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity implements BlockEntitySubLevelActor {
-
-    private static final float HEAD_VISUAL_EPSILON = 0.001f;
-
-    public static final float BASE_VISIBLE_ROD = 0.5f;
-
-    private static final float HEAD_VISUAL_INSET = 4f / 16f;
 
     private BlockPos parent;
     private UUID parentSubLevelId;
     private boolean assembling;
-
-    private float extension;
-    private float prevExtension;
-    private float maxExtension;
 
     public PneumaticCylinderPistonHeadBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
@@ -81,16 +72,6 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
         setChanged();
     }
 
-    public void onMovedBySubLevel(BlockPos oldPos, BlockPos newPos) {
-        BlockPos delta = newPos.subtract(oldPos);
-
-        if (parent != null)
-            parent = parent.offset(delta);
-
-        setChanged();
-        sendData();
-    }
-
     public void setParent(final PneumaticCylinderBlockEntity be) {
         final SubLevel subLevel = Sable.HELPER.getContaining(be);
         this.parent = be.getBlockPos();
@@ -99,21 +80,9 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
         sendData();
     }
 
-    public BlockPos getParent() {
-        return parent;
-    }
-
-    public UUID getParentSubLevelId() {
-        return parentSubLevelId;
-    }
-
     public void setAssembling(boolean assembling) {
         this.assembling = assembling;
         setChanged();
-    }
-
-    public boolean isAssembling() {
-        return assembling;
     }
 
     public PneumaticCylinderBlockEntity getParentBEInCurrentLevel() {
@@ -132,18 +101,14 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
         if (parentSubLevelId != null)
             compound.putUUID("ParentSubLevelId", parentSubLevelId);
         compound.putBoolean("Assembling", assembling);
-        compound.putFloat("Extension", extension);
-        compound.putFloat("PrevExtension", prevExtension);
-        compound.putFloat("MaxExtension", maxExtension);
     }
 
     @Override
     protected void read(CompoundTag compound, HolderLookup.Provider registries, boolean clientPacket) {
         super.read(compound, registries, clientPacket);
 
-        // Backward compatibility with your older lowercase key.
-        if (compound.contains("parent"))
-            parent = NbtUtils.readBlockPos(compound, "parent").orElse(null);
+        if (compound.contains("Parent"))
+            parent = NbtUtils.readBlockPos(compound, "Parent").orElse(null);
         if (compound.contains("ParentPos"))
             parent = NbtUtils.readBlockPos(compound, "ParentPos").orElse(null);
 
@@ -151,41 +116,35 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
                 ? compound.getUUID("ParentSubLevelId")
                 : null;
         assembling = compound.getBoolean("Assembling");
-        extension = compound.getFloat("Extension");
-        prevExtension = compound.getFloat("PrevExtension");
-        maxExtension = compound.getFloat("MaxExtension");
     }
 
-    @Override
-    public void tick() {
-        super.tick();
-        prevExtension = extension;
-    }
-
-    public void setExtensionData(float extension, float maxExtension) {
-        float clampedMax = Math.max(0, maxExtension);
-        float clampedExtension = Math.max(0, Math.min(clampedMax, extension));
-
-        this.prevExtension = this.extension;
-        this.extension = clampedExtension;
-        this.maxExtension = clampedMax;
-
-        updateVisualBlockState();
+    public void updateRodDisplay(float adjustedDistance) {
+        boolean full = getLocalRodAmount(adjustedDistance) >= 1.0f - 0.001f;
+        updateFullState(full);
 
         setChanged();
         sendData();
     }
 
-    public float getRenderedExtension(float partialTicks) {
-        return prevExtension + (extension - prevExtension) * partialTicks;
+    private float getLocalRodAmount(float adjustedDistance) {
+        float amount = 0.5f + Math.max(0, adjustedDistance) + (1f / 16f * PneumaticCylinderPistonHeadBlock.HEAD_PIXELS);
+        return amount >= 1.0f - 0.001f ? 1.0f : 0.5f;
     }
 
-    public float getExtension() {
-        return extension;
-    }
+    private void updateFullState(boolean full) {
+        if (level == null || level.isClientSide)
+            return;
 
-    public float getMaxExtension() {
-        return maxExtension;
+        BlockState oldState = level.getBlockState(worldPosition);
+        if (!(oldState.getBlock() instanceof PneumaticCylinderPistonHeadBlock))
+            return;
+
+        if (oldState.getValue(PneumaticCylinderPistonHeadBlock.FULL) == full)
+            return;
+
+        BlockState newState = oldState.setValue(PneumaticCylinderPistonHeadBlock.FULL, full);
+        level.setBlock(worldPosition, newState, Block.UPDATE_ALL);
+        level.sendBlockUpdated(worldPosition, oldState, newState, Block.UPDATE_ALL);
     }
 
     public void fixParentLinkingWhenMoved() {
@@ -196,9 +155,6 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
         if (be instanceof PneumaticCylinderBlockEntity cylinder) {
             PneumaticCylinderBlockEntity controller = cylinder.getControllerBE();
             if (controller != null) {
-                /*
-                 * Refresh parentSubLevelId first.
-                 */
                 setParent(controller);
 
                 SubLevel containing = Sable.HELPER.getContaining(this);
@@ -227,10 +183,6 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
         if (controller == null)
             return;
 
-        /*
-         * Contrairement à l'ancien comportement, casser la tête ne détruit plus
-         * le controller. On repasse seulement le vérin en état désassemblé.
-         */
         controller.onPistonHeadBroken();
     }
 
@@ -248,42 +200,6 @@ public class PneumaticCylinderPistonHeadBlockEntity extends SmartBlockEntity imp
             return null;
 
         return List.of(parentSubLevel);
-    }
-
-    public boolean shouldRenderFullModel(boolean currentlyFull) {
-        /*
-         * The head represents the first two half-units:
-         *   total half-units = 1 -> head_half
-         *   total half-units >= 2 -> head_full
-         *
-         * No hysteresis here: the visual is intentionally quantized by half-blocks.
-         */
-        float visibleRodLength = Math.max(0, extension + BASE_VISIBLE_ROD - HEAD_VISUAL_INSET);
-        int totalHalfUnits = Math.max(0, (int) Math.floor((visibleRodLength + HEAD_VISUAL_EPSILON) * 2.0f));
-
-        return totalHalfUnits >= 2;
-    }
-
-    private void updateVisualBlockState() {
-        if (level == null || level.isClientSide)
-            return;
-
-        BlockState oldState = level.getBlockState(worldPosition);
-        if (!(oldState.getBlock() instanceof PneumaticCylinderPistonHeadBlock))
-            return;
-
-        boolean currentlyFull = oldState.getValue(PneumaticCylinderPistonHeadBlock.FULL);
-        boolean full = shouldRenderFullModel(currentlyFull);
-
-        if (currentlyFull == full)
-            return;
-
-        BlockState newState = oldState.setValue(PneumaticCylinderPistonHeadBlock.FULL, full);
-
-        level.setBlock(worldPosition, newState, Block.UPDATE_ALL);
-        level.sendBlockUpdated(worldPosition, oldState, newState, Block.UPDATE_ALL);
-
-        setChanged();
     }
 
     @Override

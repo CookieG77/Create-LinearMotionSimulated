@@ -1,12 +1,11 @@
 package net.cookieg.createlinearmotionsimulated.common;
 
 import com.mojang.logging.LogUtils;
-import com.tterrag.registrate.Registrate;
-import com.tterrag.registrate.util.nullness.NonNullSupplier;
-import net.cookieg.createlinearmotionsimulated.common.registries.*;
-import net.minecraft.resources.ResourceKey;
+import net.cookieg.createlinearmotionsimulated.common.registries.BlockEntityRegistriesCLM;
+import net.cookieg.createlinearmotionsimulated.common.registries.BlockRegistriesCLM;
+import net.cookieg.createlinearmotionsimulated.common.registries.ItemRegistriesCLM;
+import net.cookieg.createlinearmotionsimulated.common.registries.SimulatedCreativeTabIntegrationCLM;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.CreativeModeTab;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
